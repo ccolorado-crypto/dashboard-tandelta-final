@@ -18,9 +18,7 @@ def generar_dashboard():
         print("ERROR: No existe la carpeta 'data'.")
         return
         
-    # Buscar todos los archivos dentro de la carpeta data
     archivos = glob.glob(os.path.join(carpeta_data, '*.*'))
-    # Ignorar archivos del sistema o notas temporales
     archivos_validos = [f for f in archivos if not f.endswith(('.py', '.html', '.bat', '.exe', '.txt', '.md'))]
     
     if not archivos_validos:
@@ -35,157 +33,307 @@ def generar_dashboard():
         for archivo in archivos_validos:
             try:
                 temp_df = pd.read_csv(archivo, sep='\t')
-                # Normalizar nombres de columnas inmediatamente al leer
                 temp_df.columns = temp_df.columns.str.strip().str.replace('"', '').str.lower()
                 lista_df.append(temp_df)
-                print(f"-> Archivo cargado con éxito: {os.path.basename(archivo)}")
             except Exception as e:
                 print(f"-> Error al leer el archivo {os.path.basename(archivo)}: {e}")
         
-        # Consolidar todo en un solo DataFrame gigante
         df = pd.concat(lista_df, ignore_index=True)
         
-        # Asegurar tipos de datos correctos
+        # Preparar data cruda para descarga (CSV)
+        # Reemplazamos saltos de línea y tabulaciones para evitar romper el formato en JS
+        data_cruda_csv = df.to_csv(index=False, sep=';').replace('\r', '').replace('\n', '\\n')
+        
         df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
         df['fecha'] = df['datetimestamp'].dt.date
         
         # 3. PROCESAR TAN DELTA (Variable 4500)
         df_tan_delta = df[df['variableid'] == 4500].copy()
-        
-        # Resumen de valores de Tan Delta por fecha
         resumen_tan = df_tan_delta.groupby('fecha')['numericvalue'].agg(
             Tan_Delta_Min='min',
             Tan_Delta_Max='max',
             Tan_Delta_Promedio='mean'
         ).reset_index()
         
-        # Calcular tiempo de operación diario ordenando globalmente por timestamp
+        # Calcular tiempo de operación real
         df_tan_delta = df_tan_delta.sort_values('datetimestamp')
         df_tan_delta['diferencia_segundos'] = df_tan_delta['datetimestamp'].diff().dt.total_seconds()
         df_tan_delta['diferencia_segundos'] = df_tan_delta['diferencia_segundos'].fillna(0)
-        
-        # Si la diferencia entre registros es mayor a 1 hora (3600s), asumimos máquina apagada
         df_tan_delta.loc[df_tan_delta['diferencia_segundos'] > 3600, 'diferencia_segundos'] = 0
         
         tiempo_operacion = df_tan_delta.groupby('fecha')['diferencia_segundos'].sum().reset_index()
         tiempo_operacion['Horas_Operacion'] = tiempo_operacion['diferencia_segundos'] / 3600
         tiempo_operacion = tiempo_operacion[['fecha', 'Horas_Operacion']]
         
-        # 4. Procesar Temperatura (Variable 61)
+        # 4. PROCESAR TEMPERATURA (Variable 61)
         df_temp = df[df['variableid'] == 61]
         resumen_temp = df_temp.groupby('fecha')['numericvalue'].agg(
             Temp_Aceite_Promedio='mean'
         ).reset_index()
         
-        # 5. Unir todos los resúmenes y ordenar cronológicamente
+        # 5. UNIR RESÚMENES
         dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
         dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
+        dashboard_df = dashboard_df.sort_values('fecha').round(2)
         
-        # Ordenar por fecha de forma ascendente para que el histórico sea correcto
-        dashboard_df = dashboard_df.sort_values('fecha')
-        dashboard_df = dashboard_df.round(2)
-        
-        # Renombrar columnas para la tabla HTML
-        dashboard_df.rename(columns={
-            'fecha': 'Fecha',
-            'Tan_Delta_Min': 'Tan Delta (Mínimo)',
-            'Tan_Delta_Max': 'Tan Delta (Máximo)',
-            'Tan_Delta_Promedio': 'Tan Delta (Promedio)',
-            'Horas_Operacion': 'Horas de Operación',
-            'Temp_Aceite_Promedio': 'Temp. Aceite Promedio (PSI)'
-        }, inplace=True)
-        
-        # 6. Generar HTML con diseño responsivo
+        # Convertir datos procesados a JSON para el manejo dinámico en JS
+        registros_json = dashboard_df.to_json(orient='records', date_format='iso')
+
+        # 6. GENERAR HTML CON PALETA ÁRTIMO INTERACTIVO
         html_template = f"""
         <!DOCTYPE html>
         <html lang="es">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dashboard CFS - Sensor de Aceite</title>
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 40px; background-color: #0d1117; color: #c9d1d9; }}
-                h1 {{ color: #58a6ff; text-align: center; font-size: 24px; margin-bottom: 20px;}}
-                .table-container {{ width: 100%; overflow-x: auto; }}
-                table {{ border-collapse: collapse; width: 100%; margin-top: 20px; background-color: #161b22; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden; }}
-                th, td {{ border: 1px solid #30363d; padding: 12px; text-align: center; font-size: 14px; }}
-                th {{ background-color: #21262d; color: #c9d1d9; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }}
-                tr:nth-child(even) {{ background-color: #1a2027; }}
-                tr:hover {{ background-color: #2b313c; }}
-                /* Estilos para las gráficas */
-                .charts-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; margin-top: 30px; margin-bottom: 40px; }}
-                .chart-card {{ background-color: #ffffff; color: #333; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 1px solid #e0e0e0; }}
-                .chart-card h3 {{ color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 10px; }}
-            </style>
+            <title>Dashboard ÁRTIMO - Analítica Predictiva</title>
+            
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            
+            <style>
+                body {{ font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }}
+                .dashboard-wrapper {{ max-width: 1300px; margin: 0 auto; }}
+                
+                /* Header */
+                .header-container {{ text-align: center; margin-bottom: 35px; }}
+                .header-container img {{ max-width: 220px; margin-bottom: 12px; }}
+                h1 {{ color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }}
+                
+                /* Panel de Control / Filtros */
+                .control-panel {{ background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }}
+                .filter-group {{ display: flex; align-items: center; gap: 10px; }}
+                .filter-group label {{ font-weight: 600; color: #5a5a5a; font-size: 14px; }}
+                .filter-group input[type="date"] {{ padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }}
+                .filter-group input[type="date"]:focus {{ border-color: #d12027; }}
+                
+                /* Botones */
+                .button-group {{ display: flex; gap: 12px; }}
+                .btn {{ padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }}
+                .btn-primary {{ background-color: #d12027; color: #ffffff; }}
+                .btn-primary:hover {{ background-color: #b01a1f; }}
+                .btn-secondary {{ background-color: #5a5a5a; color: #ffffff; }}
+                .btn-secondary:hover {{ background-color: #454545; }}
+                
+                /* Grid de Gráficas */
+                .charts-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }}
+                .chart-card {{ background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }}
+                .chart-card h3 {{ color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }}
+                
+                /* Tabla */
+                .table-container {{ background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }}
+                .table-container h3 {{ color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }}
+                table {{ border-collapse: collapse; width: 100%; min-width: 800px; }}
+                th, td {{ padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #e2e8f0; }}
+                th {{ background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }}
+                tr:hover {{ background-color: #fdf2f2; }}
+                
+                /* Clases para PDF */
+                .no-render {{ display: none !important; }}
+            </style>
         </head>
         <body>
-            <div style="text-align: center; margin-bottom: 30px;">
-                <img src="logo.png" alt="Logo ÁRTIMO" style="max-width: 220px; margin-bottom: 15px;">
-                <h1>Tablero de Analítica Histórica - Generadores</h1>
-            </div>
-            
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>1. Tendencia Histórica del Tan Delta</h3>
-                    <canvas id="chartTanDelta"></canvas>
+            <div class="dashboard-wrapper" id="content-to-pdf">
+                <div class="header-container">
+                    <img src="logo.png" alt="Logo ÁRTIMO">
+                    <h1>Sistema de Monitoreo Analítico - Generadores</h1>
                 </div>
-                <div class="chart-card">
-                    <h3>2. Horas de Operación Acumuladas</h3>
-                    <canvas id="chartHoras"></canvas>
+                
+                <div class="control-panel" id="action-panel">
+                    <div class="filter-group">
+                        <label>Desde:</label>
+                        <input type="date" id="fechaInicio" onchange="filtrarDashboard()">
+                        <label style="margin-left: 10px;">Hasta:</label>
+                        <input type="date" id="fechaFin" onchange="filtrarDashboard()">
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-secondary" onclick="descargarDataCruda()">
+                            📥 Descargar Data Cruda
+                        </button>
+                        <button class="btn btn-primary" onclick="exportarPDF()">
+                            📄 Exportar Reporte PDF
+                        </button>
+                    </div>
                 </div>
-                <div class="chart-card" style="grid-column: 1 / -1;">
-                    <h3>3. Correlación: Temperatura vs. Tan Delta Promedio</h3>
-                    <canvas id="chartCorrelacion" height="120"></canvas>
+                
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>1. Análisis y Evolución de Tan Delta</h3>
+                        <canvas id="chartTanDelta"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>2. Uso Diario (Horas de Operación)</h3>
+                        <canvas id="chartHoras"></canvas>
+                    </div>
+                    <div class="chart-card" style="grid-column: 1 / -1;" id="card-correlacion">
+                        <h3>3. Diagnóstico de Correlación: Temperatura vs. Tan Delta Promedio</h3>
+                        <canvas id="chartCorrelacion" height="100"></canvas>
+                    </div>
                 </div>
-            </div>
 
-            <div class="table-container">
-                <table class="table">
-                    {dashboard_df.to_html(index=False, classes='table', border=0)}
-                </table>
+                <div class="table-container">
+                    <h3>Historial Consolidado Filtrado</h3>
+                    <div id="contenedorTabla"></div>
+                </div>
             </div>
 
             <script>
-                const labelsFechas = {json.dumps([str(f) for f in dashboard_df['Fecha']])};
-                const dataTanMin = {json.dumps(dashboard_df['Tan Delta (Mínimo)'].fillna(0).tolist())};
-                const dataTanMax = {json.dumps(dashboard_df['Tan Delta (Máximo)'].fillna(0).tolist())};
-                const dataTanProm = {json.dumps(dashboard_df['Tan Delta (Promedio)'].fillna(0).tolist())};
-                const dataHoras = {json.dumps(dashboard_df['Horas de Operación'].fillna(0).tolist())};
-                const dataTemp = {json.dumps(dashboard_df['Temp. Aceite Promedio (PSI)'].fillna(0).tolist())};
+                // Inyección de datos desde Python de forma nativa
+                const dataHistorica = {registros_json};
+                const stringDataCruda = "{data_cruda_csv}";
+                
+                // Variables globales para las instancias de Chart.js
+                let chart1, chart2, chart3;
 
-                new Chart(document.getElementById('chartTanDelta'), {{
-                    type: 'line',
-                    data: {{
-                        labels: labelsFechas,
-                        datasets: [
-                            {{ label: 'Máximo', data: dataTanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2 }},
-                            {{ label: 'Promedio', data: dataTanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] }},
-                            {{ label: 'Mínimo', data: dataTanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 2 }}
-                        ]
-                    }}
-                }});
+                // Inicializar fechas límites en los inputs de filtro
+                if(dataHistorica.length > 0) {{
+                    const fechas Ordenadas = dataHistorica.map(r => r.fecha || r.Fecha).sort();
+                    document.getElementById('fechaInicio').value = fechasOrdenadas[0].split('T')[0];
+                    document.getElementById('fechaFin').value = fechasOrdenadas[fechasOrdenadas.length - 1].split('T')[0];
+                }}
 
-                new Chart(document.getElementById('chartHoras'), {{
-                    type: 'bar',
-                    data: {{
-                        labels: labelsFechas,
-                        datasets: [{{ label: 'Horas Operadas', data: dataHoras, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027' }}]
-                    }}
-                }});
+                // Función Principal de Filtrado y Renderizado
+                function filtrarDashboard() {{
+                    const inicio = document.getElementById('fechaInicio').value;
+                    const fin = document.getElementById('fechaFin').value;
+                    
+                    if(!inicio || !fin) return;
+                    
+                    // Filtrar arreglo de objetos
+                    const dataFiltrada = dataHistorica.filter(r => {{
+                        const f = (r.fecha || r.Fecha).split('T')[0];
+                        return f >= inicio && f <= fin;
+                    }});
+                    
+                    renderizarGraficas(dataFiltrada);
+                    renderizarTabla(dataFiltrada);
+                }}
 
-                new Chart(document.getElementById('chartCorrelacion'), {{
-                    type: 'bar',
-                    data: {{
-                        labels: labelsFechas,
-                        datasets: [
-                            {{ type: 'line', label: 'Tan Delta Promedio', data: dataTanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTanDelta', borderWidth: 3 }},
-                            {{ type: 'bar', label: 'Temperatura Promedio', data: dataTemp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp' }}
-                        ]
-                    }},
-                    options: {{ scales: {{ yTanDelta: {{ position: 'left' }}, yTemp: {{ position: 'right', grid: {{ drawOnChartArea: false }} }} }} }}
-                }});
+                function renderizarGraficas(datos) {{
+                    const labels = datos.map(r => (r.fecha || r.Fecha).split('T')[0]);
+                    const tanMin = datos.map(r => r.Tan_Delta_Min);
+                    const tanMax = datos.map(r => r.Tan_Delta_Max);
+                    const tanProm = datos.map(r => r.Tan_Delta_Promedio);
+                    const horas = datos.map(r => r.Horas_Operacion);
+                    const temp = datos.map(r => r.Temp_Aceite_Promedio);
+
+                    // Destruir instancias previas si existen para evitar sobreescritura visual
+                    if(chart1) chart1.destroy();
+                    if(chart2) chart2.destroy();
+                    if(chart3) chart3.destroy();
+
+                    // Chart 1: Tan Delta
+                    chart1 = new Chart(document.getElementById('chartTanDelta'), {{
+                        type: 'line',
+                        data: {{
+                            labels: labels,
+                            datasets: [
+                                {{ label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 2.5 }},
+                                {{ label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 }},
+                                {{ label: 'Mín Tan Delta', data: tanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 2.5 }}
+                            ]
+                        }},
+                        options: {{ responsive: true }}
+                    }});
+
+                    // Chart 2: Horas de Operación
+                    chart2 = new Chart(document.getElementById('chartHoras'), {{
+                        type: 'bar',
+                        data: {{
+                            labels: labels,
+                            datasets: [{{ label: 'Horas', data: horas, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027', borderRadius: 4 }}]
+                        }},
+                        options: {{ responsive: true, plugins: {{ legend: {{ display: false }} }} }}
+                    }});
+
+                    // Chart 3: Correlación Doble Eje
+                    chart3 = new Chart(document.getElementById('chartCorrelacion'), {{
+                        type: 'bar',
+                        data: {{
+                            labels: labels,
+                            datasets: [
+                                {{ type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, pointRadius: 3 }},
+                                {{ type: 'bar', label: 'Temperatura Promedio (PSI)', data: temp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp', borderRadius: 3 }}
+                            ]
+                        }},
+                        options: {{
+                            responsive: true,
+                            scales: {{
+                                yTan: {{ type: 'linear', position: 'left', title: {{ display: true, text: 'Tan Delta' }} }},
+                                yTemp: {{ type: 'linear', position: 'right', title: {{ display: true, text: 'Temperatura' }}, grid: {{ drawOnChartArea: false }} }}
+                            }}
+                        }}
+                    }});
+                }}
+
+                function renderizarTabla(datos) {{
+                    let html = `<table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tan Delta (Mín)</th>
+                                <th>Tan Delta (Máx)</th>
+                                <th>Tan Delta (Prom)</th>
+                                <th>Horas de Operación</th>
+                                <th>Temp. Aceite Promedio (PSI)</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    datos.forEach(r => {{
+                        const f = (r.fecha || r.Fecha).split('T')[0];
+                        html += `<tr>
+                            <td style="font-weight:600;">${{f}}</td>
+                            <td>${{r.Tan_Delta_Min}}</td>
+                            <td style="color:#d12027; font-weight:600;">${{r.Tan_Delta_Max}}</td>
+                            <td>${{r.Tan_Delta_Promedio}}</td>
+                            <td>${{r.Horas_Operacion}} hrs</td>
+                            <td>${{r.Temp_Aceite_Promedio}}</td>
+                        </tr>`;
+                    }});
+                    
+                    html += '</tbody></table>';
+                    document.getElementById('contenedorTabla').innerHTML = html;
+                }}
+
+                // ACCIÓN: Descargar Data Cruda Original (CSV)
+                function descargarDataCruda() {{
+                    const blob = new Blob([stringDataCruda], {{ type: 'text/csv;charset=utf-8;' }});
+                    const link = document.createElement("a");
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", "data_cruda_artimo_sensores.csv");
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }}
+
+                // ACCIÓN: Exportar PDF del Estado Actual del Filtro
+                function exportarPDF() {{
+                    const panelAcciones = document.getElementById('action-panel');
+                    
+                    // Ocultamos temporalmente los botones y filtros para que no salgan feos en el PDF
+                    panelAcciones.classList.add('no-render');
+                    
+                    const elemento = document.getElementById('content-to-pdf');
+                    const opciones = {{
+                        margin:       [10, 10, 10, 10],
+                        filename:     'reporte_monitoreo_artimo.pdf',
+                        image:        {{ type: 'jpeg', quality: 0.98 }},
+                        html2canvas:  {{ scale: 2, useCORS: true }},
+                        jsPDF:        {{ unit: 'mm', format: 'a3', orientation: 'landscape' }}
+                    }};
+
+                    html2pdf().set(opciones).from(elemento).save().then(() => {{
+                        // Restauramos el panel de control después de tomar la captura del PDF
+                        panelAcciones.classList.remove('no-render');
+                    }});
+                }}
+
+                // Ejecución inicial automática
+                filtrarDashboard();
             </script>
         </body>
         </html>
@@ -194,7 +342,7 @@ def generar_dashboard():
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_template)
             
-        print(f"\n¡Éxito! Dashboard histórico consolidado.")
+        print(f"\n¡Éxito! Dashboard interactivo completo generado con éxito.")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
