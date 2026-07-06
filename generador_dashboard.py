@@ -8,14 +8,11 @@ def generar_dashboard():
     carpeta_data = os.path.join(ruta_base, 'data')
     carpeta_public = os.path.join(ruta_base, 'public')
     
-    # Crear la carpeta public si no existe
     os.makedirs(carpeta_public, exist_ok=True)
-    
     archivo_salida_html = os.path.join(carpeta_public, "index.html")
     
     print("Buscando archivos en la carpeta 'data'...")
     
-    # 2. Buscar el archivo de datos automáticamente
     if not os.path.exists(carpeta_data):
         print("ERROR: No existe la carpeta 'data'.")
         return
@@ -79,26 +76,31 @@ def generar_dashboard():
             'Temp_Aceite_Promedio': 'Temp. Aceite Promedio (PSI)'
         }, inplace=True)
         
-        # Generar HTML
+        # Generar HTML con estilo ÁRTIMO
         html_template = f"""
         <!DOCTYPE html>
         <html lang="es">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dashboard CFS - Sensor de Aceite</title>
+            <title>Dashboard ÁRTIMO - Sensor de Aceite</title>
             <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 40px; background-color: #0d1117; color: #c9d1d9; }}
-                h1 {{ color: #58a6ff; text-align: center; font-size: 24px; margin-bottom: 20px;}}
-                table {{ border-collapse: collapse; width: 100%; margin-top: 20px; background-color: #161b22; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden; }}
-                th, td {{ border: 1px solid #30363d; padding: 12px; text-align: center; }}
-                th {{ background-color: #21262d; color: #c9d1d9; font-weight: 600; }}
-                tr:nth-child(even) {{ background-color: #1a2027; }}
-                tr:hover {{ background-color: #2b313c; }}
+                body {{ font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; background-color: #f7f7f7; color: #5a5a5a; }}
+                .header-container {{ text-align: center; margin-bottom: 30px; }}
+                .header-container img {{ max-width: 220px; margin-bottom: 15px; }}
+                h1 {{ color: #d12027; font-size: 26px; margin: 0; letter-spacing: 0.5px; }}
+                table {{ border-collapse: collapse; width: 100%; margin-top: 20px; background-color: #ffffff; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }}
+                th, td {{ border: 1px solid #e0e0e0; padding: 14px; text-align: center; font-size: 15px; }}
+                th {{ background-color: #d12027; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }}
+                tr:nth-child(even) {{ background-color: #fbfbfb; }}
+                tr:hover {{ background-color: #fde8e9; }}
             </style>
         </head>
         <body>
-            <h1>Reporte Diario: Tan Delta, Tiempo de Operación Real y Temperatura</h1>
+            <div class="header-container">
+                <img src="logo.png" alt="Logo ÁRTIMO">
+                <h1>Monitoreo Diario - Generadores</h1>
+            </div>
             {dashboard_df.to_html(index=False, classes='table', border=0)}
         </body>
         </html>
