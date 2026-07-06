@@ -10,11 +10,7 @@ def generar_dashboard():
     carpeta_public = os.path.join(ruta_base, 'public')
     
     os.makedirs(carpeta_public, exist_ok=True)
-    
-    # Rutas de salida para los recursos individuales
-    archivo_html = os.path.join(carpeta_public, "index.html")
-    archivo_json = os.path.join(carpeta_public, "data.json")
-    archivo_csv = os.path.join(carpeta_public, "data_cruda.csv")
+    archivo_salida_html = os.path.join(carpeta_public, "index.html")
     
     print("Buscando todos los archivos de datos en la carpeta 'data'...")
     
@@ -44,8 +40,9 @@ def generar_dashboard():
         
         df = pd.concat(lista_df, ignore_index=True)
         
-        # Guardar archivo CSV real en la carpeta public de forma segura
-        df.to_csv(archivo_csv, index=False, sep=';')
+        # Preparar data cruda convirtiéndola a una lista limpia para evitar saltos de línea conflictivos en JS
+        data_cruda_lista = df.values.tolist()
+        columnas_crudas = df.columns.tolist()
         
         df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
@@ -77,9 +74,6 @@ def generar_dashboard():
         
         # 5. UNIR RESÚMENES
         dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
-        dashboard_df = dashboard_df.sort_values('fecha').round(2)
-        
-        # Validar si hay datos de temperatura para evitar fallos de unión
         if not resumen_temp.empty:
             dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
         else:
@@ -87,10 +81,15 @@ def generar_dashboard():
             
         dashboard_df = dashboard_df.sort_values('fecha').fillna(0).round(2)
         
-        # Guardar archivo JSON real en la carpeta public de forma segura
-        dashboard_df.to_json(archivo_json, orient='records', date_format='iso')
+        # Convertir datos procesados a listas nativas compatibles con JSON puro
+        fechas_list = [str(f) for f in dashboard_df['fecha']]
+        tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
+        tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
+        tan_prom_list = dashboard_df['Tan_Delta_Promedio'].tolist()
+        horas_list = dashboard_df['Horas_Operacion'].tolist()
+        temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
 
-        # 6. PLANTILLA HTML LIMPIA (CONSUME LOS ARCHIVOS MEDIANTE FETCH)
+        # 6. PLANTILLA HTML MONOLÍTICA (INMUNE A ERRORES DE RED)
         html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -119,7 +118,7 @@ def generar_dashboard():
         .btn-secondary { background-color: #5a5a5a; color: #ffffff; }
         .btn-secondary:hover { background-color: #454545; }
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }
-        .chart-card { background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; min-height: 320px; }
+        .chart-card { background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; min-height: 340px; }
         .chart-card h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }
         .table-container { background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }
         .table-container h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }
@@ -157,15 +156,15 @@ def generar_dashboard():
         <div class="charts-grid">
             <div class="chart-card">
                 <h3>1. Análisis y Evolución de Tan Delta</h3>
-                <canvas id="chartTanDelta"></canvas>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartTanDelta"></canvas></div>
             </div>
             <div class="chart-card">
                 <h3>2. Uso Diario (Horas de Operación)</h3>
-                <canvas id="chartHoras"></canvas>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartHoras"></canvas></div>
             </div>
             <div class="chart-card" style="grid-column: 1 / -1;">
                 <h3>3. Diagnóstico de Correlación: Temperatura vs. Tan Delta Promedio</h3>
-                <canvas id="chartCorrelacion" height="100"></canvas>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartCorrelacion"></canvas></div>
             </div>
         </div>
 
@@ -176,31 +175,24 @@ def generar_dashboard():
     </div>
 
     <script>
-        let dataHistorica = [];
+        // Arreglos puros estáticos inyectados por Python de forma segura
+        const listasFechas = FECHAS_PLACEHOLDER;
+        const listasTanMin = TANMIN_PLACEHOLDER;
+        const listasTanMax = TANMAX_PLACEHOLDER;
+        const listasTanProm = TANPROM_PLACEHOLDER;
+        const listasHoras = HORAS_PLACEHOLDER;
+        const listasTemp = TEMP_PLACEHOLDER;
+        
+        const columnasCrudas = COLUMNAS_CRUDAS_PLACEHOLDER;
+        const dataCrudaFilas = FILAS_CRUDAS_PLACEHOLDER;
+
         let chart1, chart2, chart3;
 
-        // Cargar los datos desde el archivo externo JSON de forma segura
-        async function inicializarDashboard() {
-            try {
-                const respuesta = await fetch('data.json');
-                dataHistorica = await respuesta.json();
-                
-                if(dataHistorica.length > 0) {
-                    // Ordenar fechas para los selectores de rango
-                    const fechasOrdenadas = dataHistorica.map(r => {
-                        const fRaw = r.fecha || r.Fecha;
-                        return typeof fRaw === 'string' ? fRaw.split('T')[0] : fRaw;
-                    }).sort();
-                    
-                    document.getElementById('fechaInicio').value = fechasOrdenadas[0];
-                    document.getElementById('fechaFin').value = fechasOrdenadas[fechasOrdenadas.length - 1];
-                    
-                    filtrarDashboard();
-                } else {
-                    console.error("El archivo JSON está vacío.");
-                }
-            } catch (error) {
-                print("Error al cargar data.json: " + error);
+        function inicializarDashboard() {
+            if(listasFechas.length > 0) {
+                document.getElementById('fechaInicio').value = listasFechas[0];
+                document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
+                filtrarDashboard();
             }
         }
 
@@ -210,27 +202,24 @@ def generar_dashboard():
             
             if(!inicio || !fin) return;
             
-            const dataFiltrada = dataHistorica.filter(r => {
-                const fRaw = r.fecha || r.Fecha;
-                const f = typeof fRaw === 'string' ? fRaw.split('T')[0] : fRaw;
-                return f >= inicio && f <= fin;
+            // Filtrar índices que cumplan el rango de fechas
+            const indicesFiltrados = [];
+            listasFechas.forEach((f, index) => {
+                if(f >= inicio && f <= fin) indicesFiltrados.push(index);
             });
             
-            renderizarGraficas(dataFiltrada);
-            renderizarTabla(dataFiltrada);
+            const labels = indicesFiltrados.map(i => listasFechas[i]);
+            const tanMin = indicesFiltrados.map(i => listasTanMin[i]);
+            const tanMax = indicesFiltrados.map(i => listasTanMax[i]);
+            const tanProm = indicesFiltrados.map(i => listasTanProm[i]);
+            const horas = indicesFiltrados.map(i => listasHoras[i]);
+            const temp = indicesFiltrados.map(i => listasTemp[i]);
+
+            renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp);
+            renderizarTabla(indicesFiltrados);
         }
 
-        function renderizarGraficas(datos) {
-            const labels = datos.map(r => {
-                const fRaw = r.fecha || r.Fecha;
-                return typeof fRaw === 'string' ? fRaw.split('T')[0] : fRaw;
-            });
-            const tanMin = datos.map(r => r.Tan_Delta_Min);
-            const tanMax = datos.map(r => r.Tan_Delta_Max);
-            const tanProm = datos.map(r => r.Tan_Delta_Promedio);
-            const horas = datos.map(r => r.Horas_Operacion);
-            const temp = datos.map(r => r.Temp_Aceite_Promedio || 0);
-
+        function renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp) {
             if(chart1) chart1.destroy();
             if(chart2) chart2.destroy();
             if(chart3) chart3.destroy();
@@ -268,6 +257,7 @@ def generar_dashboard():
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
                         yTan: { type: 'linear', position: 'left' },
                         yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
@@ -276,7 +266,7 @@ def generar_dashboard():
             });
         }
 
-        function renderizarTabla(datos) {
+        function renderizarTabla(indices) {
             let html = `<table>
                 <thead>
                     <tr>
@@ -290,16 +280,14 @@ def generar_dashboard():
                 </thead>
                 <tbody>`;
             
-            datos.forEach(r => {
-                const fRaw = r.fecha || r.Fecha;
-                const f = typeof fRaw === 'string' ? fRaw.split('T')[0] : fRaw;
+            indices.forEach(i => {
                 html += `<tr>
-                    <td style="font-weight:600;">${f}</td>
-                    <td>${r.Tan_Delta_Min}</td>
-                    <td style="color:#d12027; font-weight:600;">${r.Tan_Delta_Max}</td>
-                    <td>${r.Tan_Delta_Promedio}</td>
-                    <td>${r.Horas_Operacion} hrs</td>
-                    <td>${r.Temp_Aceite_Promedio || 0}</td>
+                    <td style="font-weight:600;">${listasFechas[i]}</td>
+                    <td>${listasTanMin[i]}</td>
+                    <td style="color:#d12027; font-weight:600;">${listasTanMax[i]}</td>
+                    <td>${listasTanProm[i]}</td>
+                    <td>${listasHoras[i]} hrs</td>
+                    <td>${listasTemp[i]}</td>
                 </tr>`;
             });
             
@@ -308,9 +296,13 @@ def generar_dashboard():
         }
 
         function descargarDataCruda() {
-            // Descarga directa apuntando al archivo estático seguro
+            let csvContent = columnasCrudas.join(";") + "\\n";
+            dataCrudaFilas.forEach(fila => {
+                csvContent += fila.join(";") + "\\n";
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.setAttribute("href", "data_cruda.csv");
+            link.setAttribute("href", URL.createObjectURL(blob));
             link.setAttribute("download", "data_cruda_artimo.csv");
             link.click();
         }
@@ -330,16 +322,26 @@ def generar_dashboard():
             });
         }
 
-        // Lanzar la carga inicial
         inicializarDashboard();
     </script>
 </body>
 </html>"""
         
-        with open(archivo_html, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        # Reemplazar marcadores usando JSON puro libre de comillas rotas
+        html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
+        html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
+        html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
+        html_final = html_final.replace("TANPROM_PLACEHOLDER", json.dumps(tan_prom_list))
+        html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
+        html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
+        
+        html_final = html_final.replace("COLUMNAS_CRUDAS_PLACEHOLDER", json.dumps(columnas_crudas))
+        html_final = html_final.replace("FILAS_CRUDAS_PLACEHOLDER", json.dumps(data_cruda_lista))
+        
+        with open(archivo_salida_html, 'w', encoding='utf-8') as f:
+            f.write(html_final)
             
-        print(f"\n¡Archivos de datos independientes y HTML generados con éxito!")
+        print(f"\n¡Éxito! Dashboard estático monolítico generado de forma segura.")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
