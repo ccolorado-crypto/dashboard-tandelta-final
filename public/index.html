@@ -4,51 +4,47 @@
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dashboard ÁRTIMO - Analítica de Generadores</title>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <title>Dashboard CFS - Sensor de Aceite</title>
             <style>
-                body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; background-color: #f7f7f7; color: #5a5a5a; }
-                .header-container { text-align: center; margin-bottom: 30px; }
-                .header-container img { max-width: 220px; margin-bottom: 15px; }
-                h1 { color: #d12027; font-size: 26px; margin: 0; letter-spacing: 0.5px; }
-                
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 40px; background-color: #0d1117; color: #c9d1d9; }
+                h1 { color: #58a6ff; text-align: center; font-size: 24px; margin-bottom: 20px;}
+                .table-container { width: 100%; overflow-x: auto; }
+                table { border-collapse: collapse; width: 100%; margin-top: 20px; background-color: #161b22; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 6px; overflow: hidden; }
+                th, td { border: 1px solid #30363d; padding: 12px; text-align: center; font-size: 14px; }
+                th { background-color: #21262d; color: #c9d1d9; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+                tr:nth-child(even) { background-color: #1a2027; }
+                tr:hover { background-color: #2b313c; }
+                /* Estilos para las gráficas */
                 .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; margin-top: 30px; margin-bottom: 40px; }
-                .chart-card { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; }
+                .chart-card { background-color: #ffffff; color: #333; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 1px solid #e0e0e0; }
                 .chart-card h3 { color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 10px; }
-                
-                .table-container { background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; overflow-x: auto; }
-                .table-container h3 { color: #333; margin-top: 0; margin-bottom: 15px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 10px; }
-                table { border-collapse: collapse; width: 100%; background-color: #ffffff; border-radius: 6px; overflow: hidden; }
-                th, td { border: 1px solid #e0e0e0; padding: 14px; text-align: center; font-size: 14px; }
-                th { background-color: #d12027; color: #ffffff; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-                tr:nth-child(even) { background-color: #fbfbfb; }
-                tr:hover { background-color: #fde8e9; }
             </style>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         </head>
         <body>
-            <div class="header-container">
-                <img src="logo.png" alt="Logo ÁRTIMO">
-                <h1>Tablero de Analítica Predictiva - Generadores</h1>
+            <div style="text-align: center; margin-bottom: 30px;">
+                <img src="logo.png" alt="Logo ÁRTIMO" style="max-width: 220px; margin-bottom: 15px;">
+                <h1>Tablero de Analítica Histórica - Generadores</h1>
             </div>
             
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>1. Tendencia y Degradación del Tan Delta</h3>
+                    <h3>1. Tendencia Histórica del Tan Delta</h3>
                     <canvas id="chartTanDelta"></canvas>
                 </div>
                 <div class="chart-card">
-                    <h3>2. Horas de Operación Diaria (Uso)</h3>
+                    <h3>2. Horas de Operación Acumuladas</h3>
                     <canvas id="chartHoras"></canvas>
                 </div>
-                <div class="chart-card" style="grid-column:  1 / -1;">
+                <div class="chart-card" style="grid-column: 1 / -1;">
                     <h3>3. Correlación: Temperatura vs. Tan Delta Promedio</h3>
                     <canvas id="chartCorrelacion" height="120"></canvas>
                 </div>
             </div>
 
             <div class="table-container">
-                <h3>Resumen Consolidado de Datos</h3>
-                <table class="dataframe table">
+                <table class="table">
+                    <table class="dataframe table">
   <thead>
     <tr style="text-align: right;">
       <th>Fecha</th>
@@ -300,82 +296,89 @@
       <td>13.27</td>
       <td>67.74</td>
     </tr>
+    <tr>
+      <td>2026-07-01</td>
+      <td>795.92</td>
+      <td>961.22</td>
+      <td>852.48</td>
+      <td>13.32</td>
+      <td>67.93</td>
+    </tr>
+    <tr>
+      <td>2026-07-02</td>
+      <td>795.92</td>
+      <td>887.76</td>
+      <td>852.18</td>
+      <td>14.52</td>
+      <td>67.66</td>
+    </tr>
+    <tr>
+      <td>2026-07-03</td>
+      <td>789.80</td>
+      <td>893.88</td>
+      <td>851.14</td>
+      <td>14.29</td>
+      <td>68.30</td>
+    </tr>
+    <tr>
+      <td>2026-07-04</td>
+      <td>789.80</td>
+      <td>893.88</td>
+      <td>851.41</td>
+      <td>14.28</td>
+      <td>67.67</td>
+    </tr>
+    <tr>
+      <td>2026-07-05</td>
+      <td>789.80</td>
+      <td>961.22</td>
+      <td>852.32</td>
+      <td>7.62</td>
+      <td>63.11</td>
+    </tr>
   </tbody>
 </table>
+                </table>
             </div>
 
             <script>
-                const labelsFechas = ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30"];
-                const dataTanMin = [795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 789.8, 783.67, 795.92, 789.8, 795.92, 795.92, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 783.67, 783.67, 789.8, 789.8, 783.67, 795.92, 795.92, 795.92, 795.92, 795.92];
-                const dataTanMax = [906.12, 912.24, 887.76, 979.59, 991.84, 912.24, 985.71, 893.88, 875.51, 887.76, 906.12, 887.76, 887.76, 961.22, 906.12, 893.88, 887.76, 900.0, 893.88, 900.0, 918.37, 900.0, 893.88, 887.76, 955.1, 912.24, 900.0, 906.12, 912.24, 887.76];
-                const dataTanProm = [856.57, 857.65, 856.47, 856.68, 854.73, 852.92, 857.5, 857.46, 852.27, 855.94, 852.32, 850.92, 851.18, 860.31, 859.51, 848.56, 847.86, 847.32, 846.72, 847.08, 855.56, 845.54, 845.58, 842.94, 856.04, 857.79, 857.48, 861.93, 856.52, 853.2];
-                const dataHoras = [14.32, 13.9, 14.48, 14.11, 14.22, 13.89, 7.68, 7.61, 14.65, 15.74, 14.48, 14.34, 14.18, 10.36, 10.34, 13.75, 14.51, 14.45, 14.52, 13.92, 7.72, 13.93, 14.41, 14.48, 14.46, 14.31, 14.28, 8.23, 7.33, 13.27];
-                const dataTemp = [67.75, 67.81, 66.91, 66.91, 66.97, 67.59, 63.34, 59.45, 65.68, 62.36, 67.17, 67.4, 67.28, 55.74, 59.04, 67.82, 68.06, 67.53, 67.31, 66.59, 61.58, 67.31, 66.76, 67.47, 66.69, 67.6, 67.2, 61.73, 65.01, 67.74];
+                const labelsFechas = ["2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05"];
+                const dataTanMin = [795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 789.8, 783.67, 795.92, 789.8, 795.92, 795.92, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 783.67, 783.67, 789.8, 789.8, 783.67, 795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 789.8, 789.8, 789.8];
+                const dataTanMax = [906.12, 912.24, 887.76, 979.59, 991.84, 912.24, 985.71, 893.88, 875.51, 887.76, 906.12, 887.76, 887.76, 961.22, 906.12, 893.88, 887.76, 900.0, 893.88, 900.0, 918.37, 900.0, 893.88, 887.76, 955.1, 912.24, 900.0, 906.12, 912.24, 887.76, 961.22, 887.76, 893.88, 893.88, 961.22];
+                const dataTanProm = [856.57, 857.65, 856.47, 856.68, 854.73, 852.92, 857.5, 857.46, 852.27, 855.94, 852.32, 850.92, 851.18, 860.31, 859.51, 848.56, 847.86, 847.32, 846.72, 847.08, 855.56, 845.54, 845.58, 842.94, 856.04, 857.79, 857.48, 861.93, 856.52, 853.2, 852.48, 852.18, 851.14, 851.41, 852.32];
+                const dataHoras = [14.32, 13.9, 14.48, 14.11, 14.22, 13.89, 7.68, 7.61, 14.65, 15.74, 14.48, 14.34, 14.18, 10.36, 10.34, 13.75, 14.51, 14.45, 14.52, 13.92, 7.72, 13.93, 14.41, 14.48, 14.46, 14.31, 14.28, 8.23, 7.33, 13.27, 13.32, 14.52, 14.29, 14.28, 7.62];
+                const dataTemp = [67.75, 67.81, 66.91, 66.91, 66.97, 67.59, 63.34, 59.45, 65.68, 62.36, 67.17, 67.4, 67.28, 55.74, 59.04, 67.82, 68.06, 67.53, 67.31, 66.59, 61.58, 67.31, 66.76, 67.47, 66.69, 67.6, 67.2, 61.73, 65.01, 67.74, 67.93, 67.66, 68.3, 67.67, 63.11];
 
-                // --- GRÁFICA 1: TENDENCIA TAN DELTA ---
                 new Chart(document.getElementById('chartTanDelta'), {
                     type: 'line',
                     data: {
                         labels: labelsFechas,
                         datasets: [
-                            { label: 'Máximo', data: dataTanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3 },
-                            { label: 'Promedio', data: dataTanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], pointRadius: 3 },
-                            { label: 'Mínimo', data: dataTanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3 }
+                            { label: 'Máximo', data: dataTanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2 },
+                            { label: 'Promedio', data: dataTanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
+                            { label: 'Mínimo', data: dataTanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 2 }
                         ]
-                    },
-                    options: { responsive: true, plugins: { legend: { position: 'top' } } }
+                    }
                 });
 
-                // --- GRÁFICA 2: HORAS DE OPERACIÓN ---
                 new Chart(document.getElementById('chartHoras'), {
                     type: 'bar',
                     data: {
                         labels: labelsFechas,
-                        datasets: [{
-                            label: 'Horas Operadas',
-                            data: dataHoras,
-                            backgroundColor: '#5a5a5a',
-                            hoverBackgroundColor: '#d12027',
-                            borderRadius: 4
-                        }]
-                    },
-                    options: { responsive: true, plugins: { legend: { display: false } } }
+                        datasets: [{ label: 'Horas Operadas', data: dataHoras, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027' }]
+                    }
                 });
 
-                // --- GRÁFICA 3: CORRELACIÓN DOBLE EJE ---
                 new Chart(document.getElementById('chartCorrelacion'), {
                     type: 'bar',
                     data: {
                         labels: labelsFechas,
                         datasets: [
-                            {
-                                type: 'line',
-                                label: 'Tan Delta Promedio (Eje Izq)',
-                                data: dataTanProm,
-                                borderColor: '#d12027',
-                                backgroundColor: 'transparent',
-                                yAxisID: 'yTanDelta',
-                                borderWidth: 3
-                            },
-                            {
-                                type: 'bar',
-                                label: 'Temperatura Promedio PSI (Eje Der)',
-                                data: dataTemp,
-                                backgroundColor: 'rgba(90, 90, 90, 0.2)',
-                                borderColor: '#5a5a5a',
-                                borderWidth: 1,
-                                yAxisID: 'yTemp',
-                                borderRadius: 4
-                            }
+                            { type: 'line', label: 'Tan Delta Promedio', data: dataTanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTanDelta', borderWidth: 3 },
+                            { type: 'bar', label: 'Temperatura Promedio', data: dataTemp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp' }
                         ]
                     },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            yTanDelta: { type: 'linear', position: 'left', title: { display: true, text: 'Tan Delta' } },
-                            yTemp: { type: 'linear', position: 'right', title: { display: true, text: 'Temperatura (PSI)' }, grid: { drawOnChartArea: false } }
-                        }
-                    }
+                    options: { scales: { yTanDelta: { position: 'left' }, yTemp: { position: 'right', grid: { drawOnChartArea: false } } } }
                 });
             </script>
         </body>
