@@ -11,6 +11,7 @@ def generar_dashboard():
     
     os.makedirs(carpeta_public, exist_ok=True)
     archivo_salida_html = os.path.join(carpeta_public, "index.html")
+    archivo_salida_csv = os.path.join(carpeta_public, "data_cruda.csv")
     
     print("Buscando todos los archivos de datos en la carpeta 'data'...")
     
@@ -40,9 +41,10 @@ def generar_dashboard():
         
         df = pd.concat(lista_df, ignore_index=True)
         
-        # Preparar data cruda convirtiéndola a una lista limpia para evitar saltos de línea conflictivos en JS
-        data_cruda_lista = df.values.tolist()
-        columnas_crudas = df.columns.tolist()
+        # EXCELENTE: Guardamos la data cruda en un archivo externo independiente.
+        # Esto evita sobrecargar el HTML y hace que la web vuele.
+        df.to_csv(archivo_salida_csv, index=False, sep=';')
+        print("-> Archivo 'data_cruda.csv' exportado con éxito.")
         
         df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
@@ -72,7 +74,7 @@ def generar_dashboard():
             Temp_Aceite_Promedio='mean'
         ).reset_index()
         
-        # 5. UNIR RESÚMENES
+        # 5. UNIR RESÚMENES (Data ligera procesada por día)
         dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
         if not resumen_temp.empty:
             dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
@@ -81,7 +83,7 @@ def generar_dashboard():
             
         dashboard_df = dashboard_df.sort_values('fecha').fillna(0).round(2)
         
-        # Convertir datos procesados a listas nativas compatibles con JSON puro
+        # Convertir únicamente los datos agrupados diarios a listas JSON (súper liviano)
         fechas_list = [str(f) for f in dashboard_df['fecha']]
         tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
         tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
@@ -89,7 +91,7 @@ def generar_dashboard():
         horas_list = dashboard_df['Horas_Operacion'].tolist()
         temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
 
-        # 6. PLANTILLA HTML MONOLÍTICA (INMUNE A ERRORES DE RED)
+        # 6. PLANTILLA HTML ULTRA-LIGERA DE ALTO RENDIMIENTO
         html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -112,7 +114,7 @@ def generar_dashboard():
         .filter-group input[type="date"] { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }
         .filter-group input[type="date"]:focus { border-color: #d12027; }
         .button-group { display: flex; gap: 12px; }
-        .btn { padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; text-decoration: none; }
         .btn-primary { background-color: #d12027; color: #ffffff; }
         .btn-primary:hover { background-color: #b01a1f; }
         .btn-secondary { background-color: #5a5a5a; color: #ffffff; }
@@ -144,9 +146,9 @@ def generar_dashboard():
                 <input type="date" id="fechaFin" onchange="filtrarDashboard()">
             </div>
             <div class="button-group">
-                <button class="btn btn-secondary" onclick="descargarDataCruda()">
+                <a href="data_cruda.csv" download="data_cruda_artimo.csv" class="btn btn-secondary">
                     📥 Descargar Data Cruda
-                </button>
+                </a>
                 <button class="btn btn-primary" onclick="exportarPDF()">
                     📄 Exportar Reporte PDF
                 </button>
@@ -175,16 +177,13 @@ def generar_dashboard():
     </div>
 
     <script>
-        // Arreglos puros estáticos inyectados por Python de forma segura
+        // Arreglos de resúmenes compactos y súper ligeros
         const listasFechas = FECHAS_PLACEHOLDER;
         const listasTanMin = TANMIN_PLACEHOLDER;
         const listasTanMax = TANMAX_PLACEHOLDER;
         const listasTanProm = TANPROM_PLACEHOLDER;
         const listasHoras = HORAS_PLACEHOLDER;
         const listasTemp = TEMP_PLACEHOLDER;
-        
-        const columnasCrudas = COLUMNAS_CRUDAS_PLACEHOLDER;
-        const dataCrudaFilas = FILAS_CRUDAS_PLACEHOLDER;
 
         let chart1, chart2, chart3;
 
@@ -202,7 +201,6 @@ def generar_dashboard():
             
             if(!inicio || !fin) return;
             
-            // Filtrar índices que cumplan el rango de fechas
             const indicesFiltrados = [];
             listasFechas.forEach((f, index) => {
                 if(f >= inicio && f <= fin) indicesFiltrados.push(index);
@@ -295,18 +293,6 @@ def generar_dashboard():
             document.getElementById('contenedorTabla').innerHTML = html;
         }
 
-        function descargarDataCruda() {
-            let csvContent = columnasCrudas.join(";") + "\\n";
-            dataCrudaFilas.forEach(fila => {
-                csvContent += fila.join(";") + "\\n";
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.setAttribute("href", URL.createObjectURL(blob));
-            link.setAttribute("download", "data_cruda_artimo.csv");
-            link.click();
-        }
-
         function exportarPDF() {
             document.getElementById('action-panel').classList.add('no-render');
             const elemento = document.getElementById('content-to-pdf');
@@ -327,7 +313,7 @@ def generar_dashboard():
 </body>
 </html>"""
         
-        # Reemplazar marcadores usando JSON puro libre de comillas rotas
+        # Inyectar las listas agrupadas compactas
         html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
         html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
         html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
@@ -335,13 +321,10 @@ def generar_dashboard():
         html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
         html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
         
-        html_final = html_final.replace("COLUMNAS_CRUDAS_PLACEHOLDER", json.dumps(columnas_crudas))
-        html_final = html_final.replace("FILAS_CRUDAS_PLACEHOLDER", json.dumps(data_cruda_lista))
-        
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_final)
             
-        print(f"\n¡Éxito! Dashboard estático monolítico generado de forma segura.")
+        print(f"\n¡Éxito! Compilación optimizada completada.")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
