@@ -41,8 +41,7 @@ def generar_dashboard():
         df = pd.concat(lista_df, ignore_index=True)
         
         # Preparar data cruda para descarga (CSV)
-        # Reemplazamos saltos de línea y tabulaciones para evitar romper el formato en JS
-        data_cruda_csv = df.to_csv(index=False, sep=';').replace('\r', '').replace('\n', '\\n')
+        data_cruda_csv = df.to_csv(index=False, sep=';').replace('\r', '').replace('\n', '\\n').replace('"', '\\"')
         
         df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
@@ -77,11 +76,11 @@ def generar_dashboard():
         dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
         dashboard_df = dashboard_df.sort_values('fecha').round(2)
         
-        # Convertir datos procesados a JSON para el manejo dinámico en JS
+        # Convertir datos procesados a JSON
         registros_json = dashboard_df.to_json(orient='records', date_format='iso')
 
-        # 6. GENERAR HTML CON PALETA ÁRTIMO INTERACTIVO
-        html_template = f"""
+        # 6. PLANTILLA HTML ESTÁTICA
+        html_template = """
         <!DOCTYPE html>
         <html lang="es">
         <head>
@@ -93,50 +92,38 @@ def generar_dashboard():
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
             
             <style>
-                body {{ font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }}
-                .dashboard-wrapper {{ max-width: 1300px; margin: 0 auto; }}
-                
-                /* Header */
-                .header-container {{ text-align: center; margin-bottom: 35px; }}
-                .header-container img {{ max-width: 220px; margin-bottom: 12px; }}
-                h1 {{ color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }}
-                
-                /* Panel de Control / Filtros */
-                .control-panel {{ background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }}
-                .filter-group {{ display: flex; align-items: center; gap: 10px; }}
-                .filter-group label {{ font-weight: 600; color: #5a5a5a; font-size: 14px; }}
-                .filter-group input[type="date"] {{ padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }}
-                .filter-group input[type="date"]:focus {{ border-color: #d12027; }}
-                
-                /* Botones */
-                .button-group {{ display: flex; gap: 12px; }}
-                .btn {{ padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }}
-                .btn-primary {{ background-color: #d12027; color: #ffffff; }}
-                .btn-primary:hover {{ background-color: #b01a1f; }}
-                .btn-secondary {{ background-color: #5a5a5a; color: #ffffff; }}
-                .btn-secondary:hover {{ background-color: #454545; }}
-                
-                /* Grid de Gráficas */
-                .charts-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }}
-                .chart-card {{ background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }}
-                .chart-card h3 {{ color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }}
-                
-                /* Tabla */
-                .table-container {{ background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }}
-                .table-container h3 {{ color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }}
-                table {{ border-collapse: collapse; width: 100%; min-width: 800px; }}
-                th, td {{ padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #e2e8f0; }}
-                th {{ background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }}
-                tr:hover {{ background-color: #fdf2f2; }}
-                
-                /* Clases para PDF */
-                .no-render {{ display: none !important; }}
+                body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }
+                .dashboard-wrapper { max-width: 1300px; margin: 0 auto; }
+                .header-container { text-align: center; margin-bottom: 35px; }
+                .header-container img { max-width: 220px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+                h1 { color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+                .control-panel { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
+                .filter-group { display: flex; align-items: center; gap: 10px; }
+                .filter-group label { font-weight: 600; color: #5a5a5a; font-size: 14px; }
+                .filter-group input[type="date"] { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }
+                .filter-group input[type="date"]:focus { border-color: #d12027; }
+                .button-group { display: flex; gap: 12px; }
+                .btn { padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; }
+                .btn-primary { background-color: #d12027; color: #ffffff; }
+                .btn-primary:hover { background-color: #b01a1f; }
+                .btn-secondary { background-color: #5a5a5a; color: #ffffff; }
+                .btn-secondary:hover { background-color: #454545; }
+                .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }
+                .chart-card { background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; min-height: 320px; }
+                .chart-card h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }
+                .table-container { background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }
+                .table-container h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }
+                table { border-collapse: collapse; width: 100%; min-width: 800px; }
+                th, td { padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+                th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
+                tr:hover { background-color: #fdf2f2; }
+                .no-render { display: none !important; }
             </style>
         </head>
         <body>
             <div class="dashboard-wrapper" id="content-to-pdf">
                 <div class="header-container">
-                    <img src="logo.png" alt="Logo ÁRTIMO">
+                    <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
                     <h1>Sistema de Monitoreo Analítico - Generadores</h1>
                 </div>
                 
@@ -166,7 +153,7 @@ def generar_dashboard():
                         <h3>2. Uso Diario (Horas de Operación)</h3>
                         <canvas id="chartHoras"></canvas>
                     </div>
-                    <div class="chart-card" style="grid-column: 1 / -1;" id="card-correlacion">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
                         <h3>3. Diagnóstico de Correlación: Temperatura vs. Tan Delta Promedio</h3>
                         <canvas id="chartCorrelacion" height="100"></canvas>
                     </div>
@@ -179,38 +166,33 @@ def generar_dashboard():
             </div>
 
             <script>
-                // Inyección de datos desde Python de forma nativa
-                const dataHistorica = {registros_json};
-                const stringDataCruda = "{data_cruda_csv}";
+                const dataHistorica = DATA_JSON_PLACEHOLDER;
+                const stringDataCruda = "DATA_CSV_PLACEHOLDER";
                 
-                // Variables globales para las instancias de Chart.js
                 let chart1, chart2, chart3;
 
-                // Inicializar fechas límites en los inputs de filtro
-                if(dataHistorica.length > 0) {{
-                    const fechas Ordenadas = dataHistorica.map(r => r.fecha || r.Fecha).sort();
-                    document.getElementById('fechaInicio').value = fechasOrdenadas[0].split('T')[0];
-                    document.getElementById('fechaFin').value = fechasOrdenadas[fechasOrdenadas.length - 1].split('T')[0];
-                }}
+                if(dataHistorica.length > 0) {
+                    const fechasOrdenadas = dataHistorica.map(r => (r.fecha || r.Fecha).split('T')[0]).sort();
+                    document.getElementById('fechaInicio').value = fechasOrdenadas[0];
+                    document.getElementById('fechaFin').value = fechasOrdenadas[fechasOrdenadas.length - 1];
+                }
 
-                // Función Principal de Filtrado y Renderizado
-                function filtrarDashboard() {{
+                function filtrarDashboard() {
                     const inicio = document.getElementById('fechaInicio').value;
                     const fin = document.getElementById('fechaFin').value;
                     
                     if(!inicio || !fin) return;
                     
-                    // Filtrar arreglo de objetos
-                    const dataFiltrada = dataHistorica.filter(r => {{
+                    const dataFiltrada = dataHistorica.filter(r => {
                         const f = (r.fecha || r.Fecha).split('T')[0];
                         return f >= inicio && f <= fin;
-                    }});
+                    });
                     
                     renderizarGraficas(dataFiltrada);
                     renderizarTabla(dataFiltrada);
-                }}
+                }
 
-                function renderizarGraficas(datos) {{
+                function renderizarGraficas(datos) {
                     const labels = datos.map(r => (r.fecha || r.Fecha).split('T')[0]);
                     const tanMin = datos.map(r => r.Tan_Delta_Min);
                     const tanMax = datos.map(r => r.Tan_Delta_Max);
@@ -218,56 +200,52 @@ def generar_dashboard():
                     const horas = datos.map(r => r.Horas_Operacion);
                     const temp = datos.map(r => r.Temp_Aceite_Promedio);
 
-                    // Destruir instancias previas si existen para evitar sobreescritura visual
                     if(chart1) chart1.destroy();
                     if(chart2) chart2.destroy();
                     if(chart3) chart3.destroy();
 
-                    // Chart 1: Tan Delta
-                    chart1 = new Chart(document.getElementById('chartTanDelta'), {{
+                    chart1 = new Chart(document.getElementById('chartTanDelta'), {
                         type: 'line',
-                        data: {{
+                        data: {
                             labels: labels,
                             datasets: [
-                                {{ label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 2.5 }},
-                                {{ label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 }},
-                                {{ label: 'Mín Tan Delta', data: tanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 2.5 }}
+                                { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2 },
+                                { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
+                                { label: 'Mín Tan Delta', data: tanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 1.5 }
                             ]
-                        }},
-                        options: {{ responsive: true }}
-                    }});
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
 
-                    // Chart 2: Horas de Operación
-                    chart2 = new Chart(document.getElementById('chartHoras'), {{
+                    chart2 = new Chart(document.getElementById('chartHoras'), {
                         type: 'bar',
-                        data: {{
+                        data: {
                             labels: labels,
-                            datasets: [{{ label: 'Horas', data: horas, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027', borderRadius: 4 }}]
-                        }},
-                        options: {{ responsive: true, plugins: {{ legend: {{ display: false }} }} }}
-                    }});
+                            datasets: [{ label: 'Horas', data: horas, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027', borderRadius: 4 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false }
+                    });
 
-                    // Chart 3: Correlación Doble Eje
-                    chart3 = new Chart(document.getElementById('chartCorrelacion'), {{
+                    chart3 = new Chart(document.getElementById('chartCorrelacion'), {
                         type: 'bar',
-                        data: {{
+                        data: {
                             labels: labels,
                             datasets: [
-                                {{ type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, pointRadius: 3 }},
-                                {{ type: 'bar', label: 'Temperatura Promedio (PSI)', data: temp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp', borderRadius: 3 }}
+                                { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5 },
+                                { type: 'bar', label: 'Temperatura Promedio (PSI)', data: temp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp', borderRadius: 3 }
                             ]
-                        }},
-                        options: {{
+                        },
+                        options: {
                             responsive: true,
-                            scales: {{
-                                yTan: {{ type: 'linear', position: 'left', title: {{ display: true, text: 'Tan Delta' }} }},
-                                yTemp: {{ type: 'linear', position: 'right', title: {{ display: true, text: 'Temperatura' }}, grid: {{ drawOnChartArea: false }} }}
-                            }}
-                        }}
-                    }});
-                }}
+                            scales: {
+                                yTan: { type: 'linear', position: 'left' },
+                                yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+                            }
+                        }
+                    });
+                }
 
-                function renderizarTabla(datos) {{
+                function renderizarTabla(datos) {
                     let html = `<table>
                         <thead>
                             <tr>
@@ -281,68 +259,59 @@ def generar_dashboard():
                         </thead>
                         <tbody>`;
                     
-                    datos.forEach(r => {{
+                    datos.forEach(r => {
                         const f = (r.fecha || r.Fecha).split('T')[0];
                         html += `<tr>
-                            <td style="font-weight:600;">${{f}}</td>
-                            <td>${{r.Tan_Delta_Min}}</td>
-                            <td style="color:#d12027; font-weight:600;">${{r.Tan_Delta_Max}}</td>
-                            <td>${{r.Tan_Delta_Promedio}}</td>
-                            <td>${{r.Horas_Operacion}} hrs</td>
-                            <td>${{r.Temp_Aceite_Promedio}}</td>
+                            <td style="font-weight:600;">${f}</td>
+                            <td>${r.Tan_Delta_Min}</td>
+                            <td style="color:#d12027; font-weight:600;">${r.Tan_Delta_Max}</td>
+                            <td>${r.Tan_Delta_Promedio}</td>
+                            <td>${r.Horas_Operacion} hrs</td>
+                            <td>${r.Temp_Aceite_Promedio}</td>
                         </tr>`;
-                    }});
+                    });
                     
                     html += '</tbody></table>';
                     document.getElementById('contenedorTabla').innerHTML = html;
-                }}
+                }
 
-                // ACCIÓN: Descargar Data Cruda Original (CSV)
-                function descargarDataCruda() {{
-                    const blob = new Blob([stringDataCruda], {{ type: 'text/csv;charset=utf-8;' }});
+                function descargarDataCruda() {
+                    const blob = new Blob([stringDataCruda], { type: 'text/csv;charset=utf-8;' });
                     const link = document.createElement("a");
-                    const url = URL.createObjectURL(blob);
-                    link.setAttribute("href", url);
-                    link.setAttribute("download", "data_cruda_artimo_sensores.csv");
-                    link.style.visibility = 'hidden';
-                    document.body.appendChild(link);
+                    link.setAttribute("href", URL.createObjectURL(blob));
+                    link.setAttribute("download", "data_cruda_artimo.csv");
                     link.click();
-                    document.body.removeChild(link);
-                }}
+                }
 
-                // ACCIÓN: Exportar PDF del Estado Actual del Filtro
-                function exportarPDF() {{
-                    const panelAcciones = document.getElementById('action-panel');
-                    
-                    // Ocultamos temporalmente los botones y filtros para que no salgan feos en el PDF
-                    panelAcciones.classList.add('no-render');
-                    
+                function exportarPDF() {
+                    document.getElementById('action-panel').classList.add('no-render');
                     const elemento = document.getElementById('content-to-pdf');
-                    const opciones = {{
+                    const opciones = {
                         margin:       [10, 10, 10, 10],
                         filename:     'reporte_monitoreo_artimo.pdf',
-                        image:        {{ type: 'jpeg', quality: 0.98 }},
-                        html2canvas:  {{ scale: 2, useCORS: true }},
-                        jsPDF:        {{ unit: 'mm', format: 'a3', orientation: 'landscape' }}
-                    }};
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2, useCORS: true },
+                        jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' }
+                    };
+                    html2pdf().set(opciones).from(elemento).save().then(() => {
+                        document.getElementById('action-panel').classList.remove('no-render');
+                    });
+                }
 
-                    html2pdf().set(opciones).from(elemento).save().then(() => {{
-                        // Restauramos el panel de control después de tomar la captura del PDF
-                        panelAcciones.classList.remove('no-render');
-                    }});
-                }}
-
-                // Ejecución inicial automática
                 filtrarDashboard();
             </script>
         </body>
         </html>
         """
         
+        # Realizar reemplazos seguros reemplazando strings planos en lugar de formatear con llaves
+        html_final = html_template.replace("DATA_JSON_PLACEHOLDER", registros_json)
+        html_final = html_final.replace("DATA_CSV_PLACEHOLDER", data_cruda_csv)
+        
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
-            f.write(html_template)
+            f.write(html_final)
             
-        print(f"\n¡Éxito! Dashboard interactivo completo generado con éxito.")
+        print(f"\n¡Éxito! Dashboard interactivo generado correctamente sin conflictos.")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
