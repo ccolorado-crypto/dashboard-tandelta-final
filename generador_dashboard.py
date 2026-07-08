@@ -32,7 +32,6 @@ def generar_dashboard():
         for archivo in archivos_validos:
             try:
                 temp_df = pd.read_csv(archivo, sep='\t')
-                # Forzar limpieza agresiva de encabezados (remover comillas dobles y simples)
                 temp_df.columns = temp_df.columns.str.strip().str.replace('"', '').str.replace("'", "").str.lower()
                 lista_df.append(temp_df)
             except Exception as e:
@@ -41,7 +40,6 @@ def generar_dashboard():
         df = pd.concat(lista_df, ignore_index=True)
         df.to_csv(archivo_salida_csv, index=False, sep=';')
         
-        # Procesar fechas de forma ultra-segura
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'], errors='coerce')
         df['fecha_str'] = df['datetimestamp'].dt.strftime('%Y-%m-%d')
         
@@ -88,7 +86,6 @@ def generar_dashboard():
         zona_horaria = pytz.timezone('America/Bogota')
         fecha_actualizacion = datetime.now(zona_horaria).strftime("%d/%m/%Y a las %I:%M %p")
         
-        # Convertir a listas nativas garantizando strings limpios en las fechas
         fechas_list = dashboard_df['fecha_str'].tolist()
         tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
         tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
@@ -100,7 +97,7 @@ def generar_dashboard():
         kpi_prom_historico = float(dashboard_df['Tan_Delta_Promedio'].mean()) if not dashboard_df.empty else 0.0
         kpi_total_horas = float(dashboard_df['Horas_Operacion'].sum()) if not dashboard_df.empty else 0.0
 
-        # 6. PLANTILLA HTML CON INTERRUPTOR DE SEGURIDAD CORREGIDO
+        # 6. PLANTILLA HTML CON SALVAGUARDAS DE RENDERIZADO
         html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -244,9 +241,11 @@ def generar_dashboard():
 
         function inicializarDashboard() {
             if(listasFechas.length > 0) {
-                // Las fechas ya vienen perfectas en formato YYYY-MM-DD
+                // Intentar asignar los valores a los inputs del calendario
                 document.getElementById('fechaInicio').value = listasFechas[0];
                 document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
+                
+                // Ejecutar el filtrado inicial pase lo que pase
                 filtrarDashboard();
             } else {
                 document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px; color:#64748b;">No se encontraron fechas de sensores válidas.</p>';
@@ -254,10 +253,14 @@ def generar_dashboard():
         }
 
         function filtrarDashboard() {
-            const inicio = document.getElementById('fechaInicio').value;
-            const fin = document.getElementById('fechaFin').value;
+            // SALVAGUARDA CRÍTICA: Si el input del navegador está vacío, recurrir directamente a la matriz de datos nativa
+            let inicio = document.getElementById('fechaInicio').value;
+            let fin = document.getElementById('fechaFin').value;
             
-            if(!inicio || !fin || listasFechas.length === 0) return;
+            if (!inicio && listasFechas.length > 0) inicio = listasFechas[0];
+            if (!fin && listasFechas.length > 0) fin = listasFechas[listasFechas.length - 1];
+            
+            if(listasFechas.length === 0) return;
             
             const indicesFiltrados = [];
             listasFechas.forEach((f, index) => {
