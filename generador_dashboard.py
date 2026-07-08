@@ -2,6 +2,8 @@ import pandas as pd
 import os
 import glob
 import json
+from datetime import datetime
+import pytz
 
 def generar_dashboard():
     # 1. Definir rutas relativas
@@ -41,10 +43,8 @@ def generar_dashboard():
         
         df = pd.concat(lista_df, ignore_index=True)
         
-        # EXCELENTE: Guardamos la data cruda en un archivo externo independiente.
-        # Esto evita sobrecargar el HTML y hace que la web vuele.
+        # Guardamos la data cruda de forma externa (el botón de descarga apuntará aquí)
         df.to_csv(archivo_salida_csv, index=False, sep=';')
-        print("-> Archivo 'data_cruda.csv' exportado con éxito.")
         
         df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
         df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
@@ -74,7 +74,7 @@ def generar_dashboard():
             Temp_Aceite_Promedio='mean'
         ).reset_index()
         
-        # 5. UNIR RESÚMENES (Data ligera procesada por día)
+        # 5. UNIR RESÚMENES (Datos diarios compactos)
         dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
         if not resumen_temp.empty:
             dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
@@ -83,13 +83,22 @@ def generar_dashboard():
             
         dashboard_df = dashboard_df.sort_values('fecha').fillna(0).round(2)
         
-        # Convertir únicamente los datos agrupados diarios a listas JSON (súper liviano)
+        # Obtener fecha y hora de la actualización (Zona Horaria Local)
+        zona_horaria = pytz.timezone('America/Bogota') # Cambia a tu zona horaria si es necesario
+        fecha_actualizacion = datetime.now(zona_horaria).strftime("%d/%m/%Y a las %I:%M %p")
+        
+        # Convertir únicamente resúmenes compactos a JSON
         fechas_list = [str(f) for f in dashboard_df['fecha']]
         tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
         tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
         tan_prom_list = dashboard_df['Tan_Delta_Promedio'].tolist()
         horas_list = dashboard_df['Horas_Operacion'].tolist()
         temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
+
+        # Calcular métricas KPI agregadas para las ideas adicionales
+        kpi_max_historico = float(dashboard_df['Tan_Delta_Max'].max())
+        kpi_prom_historico = float(dashboard_df['Tan_Delta_Promedio'].mean())
+        kpi_total_horas = float(dashboard_df['Horas_Operacion'].sum())
 
         # 6. PLANTILLA HTML ULTRA-LIGERA DE ALTO RENDIMIENTO
         html_content = """<!DOCTYPE html>
@@ -103,31 +112,56 @@ def generar_dashboard():
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:ital,wght@1,300;1,400&display=swap');
+        
+        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 40px; background-color: #f8fafc; color: #1e293b; }
         .dashboard-wrapper { max-width: 1300px; margin: 0 auto; }
+        
         .header-container { text-align: center; margin-bottom: 35px; }
-        .header-container img { max-width: 220px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
-        h1 { color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
-        .control-panel { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
+        .header-container img { max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+        h1 { color: #d12027; font-size: 30px; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
+        
+        .update-badge { display: inline-block; background-color: #f1f5f9; color: #64748b; font-size: 13px; font-weight: 500; padding: 6px 16px; border-radius: 20px; border: 1px solid #e2e8f0; margin-top: 10px; }
+        .update-badge strong { color: #475569; }
+        
+        /* Sección de KPIs Estratégicos (Idea Adicional) */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
+        .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background-color: #d12027; }
+        .kpi-card.secondary::before { background-color: #64748b; }
+        .kpi-card.warning::before { background-color: #f59e0b; }
+        .kpi-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 5px; }
+        
+        .control-panel { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
         .filter-group { display: flex; align-items: center; gap: 10px; }
-        .filter-group label { font-weight: 600; color: #5a5a5a; font-size: 14px; }
-        .filter-group input[type="date"] { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }
+        .filter-group label { font-weight: 600; color: #475569; font-size: 14px; }
+        .filter-group input[type="date"] { padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 14px; color: #1e293b; outline: none; transition: border 0.2s; }
         .filter-group input[type="date"]:focus { border-color: #d12027; }
+        
         .button-group { display: flex; gap: 12px; }
-        .btn { padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; text-decoration: none; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; text-decoration: none; }
         .btn-primary { background-color: #d12027; color: #ffffff; }
-        .btn-primary:hover { background-color: #b01a1f; }
-        .btn-secondary { background-color: #5a5a5a; color: #ffffff; }
-        .btn-secondary:hover { background-color: #454545; }
+        .btn-primary:hover { background-color: #b01a1f; box-shadow: 0 4px 12px rgba(209,32,39,0.2); }
+        .btn-secondary { background-color: #475569; color: #ffffff; }
+        .btn-secondary:hover { background-color: #334155; }
+        
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }
-        .chart-card { background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; min-height: 340px; }
-        .chart-card h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }
-        .table-container { background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }
-        .table-container h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }
+        .chart-card { background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; min-height: 340px; }
+        .chart-card h3 { color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-left: 4px solid #d12027; padding-left: 12px; letter-spacing: -0.3px; }
+        
+        .table-container { background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; overflow-x: auto; margin-bottom: 40px; }
+        .table-container h3 { color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-left: 4px solid #475569; padding-left: 12px; }
+        
         table { border-collapse: collapse; width: 100%; min-width: 800px; }
-        th, td { padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
-        th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
-        tr:hover { background-color: #fdf2f2; }
+        th, td { padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
+        th { background-color: #f8fafc; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
+        tr:hover { background-color: #fecaca33; }
+        
+        /* Firma elegante requerida */
+        .footer-signature { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #64748b; font-weight: 400; }
+        .footer-signature span { font-weight: 600; color: #1e293b; letter-spacing: 0.2px; }
+        
         .no-render { display: none !important; }
     </style>
 </head>
@@ -136,6 +170,22 @@ def generar_dashboard():
         <div class="header-container">
             <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
             <h1>Sistema de Monitoreo Analítico - Generadores</h1>
+            <div class="update-badge">Última actualización: <strong>FECHA_UPDATE_PLACEHOLDER</strong></div>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-card">
+                <div class="kpi-title">Máximo Histórico Tan Delta</div>
+                <div class="kpi-value" id="kpi-max">0.00</div>
+            </div>
+            <div class="kpi-card warning">
+                <div class="kpi-title">Promedio General Registrado</div>
+                <div class="kpi-value" id="kpi-prom">0.00</div>
+            </div>
+            <div class="kpi-card secondary">
+                <div class="kpi-title">Total Horas de Operación</div>
+                <div class="kpi-value" id="kpi-horas">0.00 hrs</div>
+            </div>
         </div>
         
         <div class="control-panel" id="action-panel">
@@ -174,16 +224,24 @@ def generar_dashboard():
             <h3>Historial Consolidado Filtrado</h3>
             <div id="contenedorTabla"></div>
         </div>
+
+        <div class="footer-signature">
+            Dashboard creado por <span>Carlos Colorado</span> - Líder de Producto
+        </div>
     </div>
 
     <script>
-        // Arreglos de resúmenes compactos y súper ligeros
         const listasFechas = FECHAS_PLACEHOLDER;
         const listasTanMin = TANMIN_PLACEHOLDER;
         const listasTanMax = TANMAX_PLACEHOLDER;
         const listasTanProm = TANPROM_PLACEHOLDER;
         const listasHoras = HORAS_PLACEHOLDER;
         const listasTemp = TEMP_PLACEHOLDER;
+
+        // Inyección estática de KPIs globales
+        document.getElementById('kpi-max').innerText = parseFloat(KPI_MAX_PLACEHOLDER).toFixed(2);
+        document.getElementById('kpi-prom').innerText = parseFloat(KPI_PROM_PLACEHOLDER).toFixed(2);
+        document.getElementById('kpi-horas').innerText = parseFloat(KPI_HORAS_PLACEHOLDER).toFixed(1) + " hrs";
 
         let chart1, chart2, chart3;
 
@@ -227,19 +285,19 @@ def generar_dashboard():
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2 },
+                        { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1 },
                         { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
-                        { label: 'Mín Tan Delta', data: tanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 1.5 }
+                        { label: 'Mín Tan Delta', data: tanMin, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1.5 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Plus Jakarta Sans' } } } } }
             });
 
             chart2 = new Chart(document.getElementById('chartHoras'), {
                 type: 'bar',
                 data: {
                     labels: labels,
-                    datasets: [{ label: 'Horas', data: horas, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027', borderRadius: 4 }]
+                    datasets: [{ label: 'Horas Operación', data: horas, backgroundColor: '#475569', hoverBackgroundColor: '#d12027', borderRadius: 6 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
@@ -249,8 +307,8 @@ def generar_dashboard():
                 data: {
                     labels: labels,
                     datasets: [
-                        { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5 },
-                        { type: 'bar', label: 'Temperatura Promedio', data: temp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp', borderRadius: 3 }
+                        { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, tension: 0.1 },
+                        { type: 'bar', label: 'Temperatura Promedio', data: temp, backgroundColor: 'rgba(71, 85, 105, 0.12)', borderColor: '#475569', yAxisID: 'yTemp', borderRadius: 4 }
                     ]
                 },
                 options: {
@@ -280,11 +338,11 @@ def generar_dashboard():
             
             indices.forEach(i => {
                 html += `<tr>
-                    <td style="font-weight:600;">${listasFechas[i]}</td>
+                    <td style="font-weight:600; color:#475569;">${listasFechas[i]}</td>
                     <td>${listasTanMin[i]}</td>
-                    <td style="color:#d12027; font-weight:600;">${listasTanMax[i]}</td>
+                    <td style="color:#d12027; font-weight:700;">${listasTanMax[i]}</td>
                     <td>${listasTanProm[i]}</td>
-                    <td>${listasHoras[i]} hrs</td>
+                    <td style="font-weight:500;">${listasHoras[i]} hrs</td>
                     <td>${listasTemp[i]}</td>
                 </tr>`;
             });
@@ -313,7 +371,7 @@ def generar_dashboard():
 </body>
 </html>"""
         
-        # Inyectar las listas agrupadas compactas
+        # Realizar reemplazos eficientes de datos ligeros
         html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
         html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
         html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
@@ -321,10 +379,16 @@ def generar_dashboard():
         html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
         html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
         
+        # Reemplazos de las nuevas funciones pedidas
+        html_final = html_final.replace("FECHA_UPDATE_PLACEHOLDER", fecha_actualizacion)
+        html_final = html_final.replace("KPI_MAX_PLACEHOLDER", str(kpi_max_historico))
+        html_final = html_final.replace("KPI_PROM_PLACEHOLDER", str(kpi_prom_historico))
+        html_final = html_final.replace("KPI_HORAS_PLACEHOLDER", str(kpi_total_horas))
+        
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_final)
             
-        print(f"\n¡Éxito! Compilación optimizada completada.")
+        print(f"\n¡Éxito! Dashboard optimizado de alto rendimiento generado correctamente.")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
