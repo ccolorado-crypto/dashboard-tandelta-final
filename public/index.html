@@ -65,7 +65,7 @@
         <div class="header-container">
             <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
             <h1>Sistema de Monitoreo Analítico - Generadores</h1>
-            <div class="update-badge">Última actualización: <strong>08/07/2026 a las 03:20 PM</strong></div>
+            <div class="update-badge">Última actualización: <strong>08/07/2026 a las 03:23 PM</strong></div>
         </div>
 
         <div class="kpi-container">
@@ -141,11 +141,12 @@
 
         function inicializarDashboard() {
             if(listasFechas.length > 0) {
+                // Las fechas ya vienen perfectas en formato YYYY-MM-DD
                 document.getElementById('fechaInicio').value = listasFechas[0];
                 document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
                 filtrarDashboard();
             } else {
-                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px; color:#64748b;">No se encontraron registros válidos para las fechas procesadas.</p>';
+                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px; color:#64748b;">No se encontraron fechas de sensores válidas.</p>';
             }
         }
 
