@@ -65,7 +65,7 @@
         <div class="header-container">
             <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
             <h1>Sistema de Monitoreo Analítico - Generadores</h1>
-            <div class="update-badge">Última actualización: <strong>08/07/2026 a las 03:23 PM</strong></div>
+            <div class="update-badge">Última actualización: <strong>08/07/2026 a las 03:27 PM</strong></div>
         </div>
 
         <div class="kpi-container">
@@ -141,9 +141,11 @@
 
         function inicializarDashboard() {
             if(listasFechas.length > 0) {
-                // Las fechas ya vienen perfectas en formato YYYY-MM-DD
+                // Intentar asignar los valores a los inputs del calendario
                 document.getElementById('fechaInicio').value = listasFechas[0];
                 document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
+                
+                // Ejecutar el filtrado inicial pase lo que pase
                 filtrarDashboard();
             } else {
                 document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px; color:#64748b;">No se encontraron fechas de sensores válidas.</p>';
@@ -151,10 +153,14 @@
         }
 
         function filtrarDashboard() {
-            const inicio = document.getElementById('fechaInicio').value;
-            const fin = document.getElementById('fechaFin').value;
+            // SALVAGUARDA CRÍTICA: Si el input del navegador está vacío, recurrir directamente a la matriz de datos nativa
+            let inicio = document.getElementById('fechaInicio').value;
+            let fin = document.getElementById('fechaFin').value;
             
-            if(!inicio || !fin || listasFechas.length === 0) return;
+            if (!inicio && listasFechas.length > 0) inicio = listasFechas[0];
+            if (!fin && listasFechas.length > 0) fin = listasFechas[listasFechas.length - 1];
+            
+            if(listasFechas.length === 0) return;
             
             const indicesFiltrados = [];
             listasFechas.forEach((f, index) => {
