@@ -4,46 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard ÁRTIMO - Analítica Predictiva</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Montserrat:ital,wght@1,300;1,400&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 40px; background-color: #f8fafc; color: #1e293b; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }
         .dashboard-wrapper { max-width: 1300px; margin: 0 auto; }
         .header-container { text-align: center; margin-bottom: 35px; }
-        .header-container img { max-width: 200px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
-        h1 { color: #d12027; font-size: 30px; margin: 0; font-weight: 700; letter-spacing: -0.5px; }
-        .update-badge { display: inline-block; background-color: #f1f5f9; color: #64748b; font-size: 13px; font-weight: 500; padding: 6px 16px; border-radius: 20px; border: 1px solid #e2e8f0; margin-top: 10px; }
-        .update-badge strong { color: #475569; }
-        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .kpi-card { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
-        .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background-color: #d12027; }
-        .kpi-card.secondary::before { background-color: #64748b; }
-        .kpi-card.warning::before { background-color: #f59e0b; }
-        .kpi-title { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .kpi-value { font-size: 26px; font-weight: 700; color: #0f172a; margin-top: 5px; }
-        .control-panel { background-color: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
+        .header-container img { max-width: 220px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+        h1 { color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+        .control-panel { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
         .filter-group { display: flex; align-items: center; gap: 10px; }
-        .filter-group label { font-weight: 600; color: #475569; font-size: 14px; }
-        .filter-group input[type="date"] { padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 14px; color: #1e293b; outline: none; transition: border 0.2s; }
+        .filter-group label { font-weight: 600; color: #5a5a5a; font-size: 14px; }
+        .filter-group input[type="date"] { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 14px; color: #334155; outline: none; }
         .filter-group input[type="date"]:focus { border-color: #d12027; }
         .button-group { display: flex; gap: 12px; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; text-decoration: none; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease; text-decoration: none; }
         .btn-primary { background-color: #d12027; color: #ffffff; }
         .btn-primary:hover { background-color: #b01a1f; }
-        .btn-secondary { background-color: #475569; color: #ffffff; }
-        .btn-secondary:hover { background-color: #334155; }
+        .btn-secondary { background-color: #5a5a5a; color: #ffffff; }
+        .btn-secondary:hover { background-color: #454545; }
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(550px, 1fr)); gap: 25px; margin-bottom: 35px; }
-        .chart-card { background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; min-height: 340px; }
-        .chart-card h3 { color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-left: 4px solid #d12027; padding-left: 12px; letter-spacing: -0.3px; }
-        .table-container { background-color: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; overflow-x: auto; margin-bottom: 40px; }
-        .table-container h3 { color: #0f172a; margin-top: 0; margin-bottom: 20px; font-size: 16px; font-weight: 700; border-left: 4px solid #475569; padding-left: 12px; }
+        .chart-card { background-color: #ffffff; padding: 22px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; min-height: 340px; }
+        .chart-card h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #d12027; padding-left: 12px; }
+        .table-container { background-color: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; }
+        .table-container h3 { color: #2d3748; margin-top: 0; margin-bottom: 20px; font-size: 16px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 4px solid #5a5a5a; padding-left: 12px; }
         table { border-collapse: collapse; width: 100%; min-width: 800px; }
-        th, td { padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
-        th { background-color: #f8fafc; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
-        tr:hover { background-color: #fecaca33; }
-        .footer-signature { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #64748b; font-weight: 400; }
-        .footer-signature span { font-weight: 600; color: #1e293b; letter-spacing: 0.2px; }
+        th, td { padding: 14px; text-align: center; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
+        th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
+        tr:hover { background-color: #fdf2f2; }
         .no-render { display: none !important; }
     </style>
 </head>
@@ -52,107 +42,176 @@
         <div class="header-container">
             <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
             <h1>Sistema de Monitoreo Analítico - Generadores</h1>
-            <div class="update-badge">Última actualización: <strong>08/07/2026 a las 03:40 PM</strong></div>
         </div>
-        <div class="kpi-container">
-            <div class="kpi-card"><div class="kpi-title">Máximo Histórico Tan Delta</div><div class="kpi-value" id="kpi-max">1010.2</div></div>
-            <div class="kpi-card warning"><div class="kpi-title">Promedio General Registrado</div><div class="kpi-value" id="kpi-prom">835.69</div></div>
-            <div class="kpi-card secondary"><div class="kpi-title">Total Horas de Operación</div><div class="kpi-value" id="kpi-horas">1049.2 hrs</div></div>
-        </div>
+        
         <div class="control-panel" id="action-panel">
             <div class="filter-group">
-                <label>Desde:</label><input type="date" id="fechaInicio" onchange="filtrarDashboard()">
-                <label style="margin-left: 10px;">Hasta:</label><input type="date" id="fechaFin" onchange="filtrarDashboard()">
+                <label>Desde:</label>
+                <input type="date" id="fechaInicio" onchange="filtrarDashboard()">
+                <label style="margin-left: 10px;">Hasta:</label>
+                <input type="date" id="fechaFin" onchange="filtrarDashboard()">
             </div>
             <div class="button-group">
-                <a href="data_cruda.csv" download="data_cruda_artimo.csv" class="btn btn-secondary">📥 Descargar Data Cruda</a>
-                <button class="btn btn-primary" onclick="exportarPDF()">📄 Exportar Reporte PDF</button>
+                <a href="data_cruda.csv" download="data_cruda_artimo.csv" class="btn btn-secondary">
+                    📥 Descargar Data Cruda
+                </a>
+                <button class="btn btn-primary" onclick="exportarPDF()">
+                    📄 Exportar Reporte PDF
+                </button>
             </div>
         </div>
+        
         <div class="charts-grid">
-            <div class="chart-card"><h3>1. Análisis y Evolución de Tan Delta</h3><div style="position: relative; height:280px; width:100%"><canvas id="chartTanDelta"></canvas></div></div>
-            <div class="chart-card"><h3>2. Uso Diario (Horas de Operación)</h3><div style="position: relative; height:280px; width:100%"><canvas id="chartHoras"></canvas></div></div>
-            <div class="chart-card" style="grid-column: 1 / -1;"><h3>3. Diagnóstico de Correlación: Temperatura vs. Tan Delta Promedio</h3><div style="position: relative; height:280px; width:100%"><canvas id="chartCorrelacion"></canvas></div></div>
+            <div class="chart-card">
+                <h3>1. Análisis y Evolución de Tan Delta</h3>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartTanDelta"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>2. Uso Diario (Horas de Operación)</h3>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartHoras"></canvas></div>
+            </div>
+            <div class="chart-card" style="grid-column: 1 / -1;">
+                <h3>3. Diagnóstico de Correlación: Temperatura vs. Tan Delta Promedio</h3>
+                <div style="position: relative; height:280px; width:100%"><canvas id="chartCorrelacion"></canvas></div>
+            </div>
         </div>
-        <div class="table-container"><h3>Historial Consolidado Filtrado</h3><div id="contenedorTabla"></div></div>
-        <div class="footer-signature">Dashboard creado por <span>Carlos Colorado</span> - Líder de Producto</div>
+
+        <div class="table-container">
+            <h3>Historial Consolidado Filtrado</h3>
+            <div id="contenedorTabla"></div>
+        </div>
     </div>
 
     <script>
-        const dbData = [{"fecha":"2025-01-12","Tan_Min":740.82,"Tan_Max":875.51,"Tan_Prom":770.82,"diff":38369.0,"Horas":10.66,"Temp_Prom":67.05},{"fecha":"2025-02-12","Tan_Min":740.82,"Tan_Max":838.78,"Tan_Prom":771.7,"diff":46530.0,"Horas":12.92,"Temp_Prom":66.08},{"fecha":"2025-03-12","Tan_Min":740.82,"Tan_Max":906.12,"Tan_Prom":772.42,"diff":48240.0,"Horas":13.4,"Temp_Prom":66.53},{"fecha":"2025-04-12","Tan_Min":740.82,"Tan_Max":869.39,"Tan_Prom":789.3,"diff":46409.0,"Horas":12.89,"Temp_Prom":59.05},{"fecha":"2025-05-11","Tan_Min":592.94,"Tan_Max":740.82,"Tan_Prom":725.24,"diff":30721.0,"Horas":8.53,"Temp_Prom":-29.09},{"fecha":"2025-05-12","Tan_Min":740.82,"Tan_Max":893.88,"Tan_Prom":772.44,"diff":46706.0,"Horas":12.97,"Temp_Prom":66.94},{"fecha":"2025-06-11","Tan_Min":716.33,"Tan_Max":814.29,"Tan_Prom":742.39,"diff":48479.0,"Horas":13.47,"Temp_Prom":0.0},{"fecha":"2025-06-12","Tan_Min":740.82,"Tan_Max":918.37,"Tan_Prom":772.78,"diff":47728.0,"Horas":13.26,"Temp_Prom":66.53},{"fecha":"2025-07-11","Tan_Min":716.33,"Tan_Max":844.9,"Tan_Prom":745.45,"diff":48001.0,"Horas":13.33,"Temp_Prom":68.19},{"fecha":"2025-07-12","Tan_Min":734.69,"Tan_Max":893.88,"Tan_Prom":780.79,"diff":28197.0,"Horas":7.83,"Temp_Prom":63.83},{"fecha":"2025-08-11","Tan_Min":722.45,"Tan_Max":851.02,"Tan_Prom":752.39,"diff":47222.0,"Horas":13.12,"Temp_Prom":66.14},{"fecha":"2025-08-12","Tan_Min":734.69,"Tan_Max":863.27,"Tan_Prom":781.87,"diff":27239.0,"Horas":7.57,"Temp_Prom":61.33},{"fecha":"2025-09-11","Tan_Min":716.33,"Tan_Max":857.14,"Tan_Prom":760.23,"diff":28316.0,"Horas":7.87,"Temp_Prom":63.18},{"fecha":"2025-09-12","Tan_Min":740.82,"Tan_Max":875.51,"Tan_Prom":779.8,"diff":46472.0,"Horas":12.91,"Temp_Prom":64.32},{"fecha":"2025-10-11","Tan_Min":722.45,"Tan_Max":851.02,"Tan_Prom":750.15,"diff":53042.0,"Horas":14.73,"Temp_Prom":68.51},{"fecha":"2025-10-12","Tan_Min":740.82,"Tan_Max":875.51,"Tan_Prom":778.29,"diff":47578.0,"Horas":13.22,"Temp_Prom":65.05},{"fecha":"2025-11-11","Tan_Min":722.45,"Tan_Max":826.53,"Tan_Prom":756.45,"diff":61319.0,"Horas":17.03,"Temp_Prom":65.95},{"fecha":"2025-11-12","Tan_Min":734.69,"Tan_Max":893.88,"Tan_Prom":784.32,"diff":49259.0,"Horas":13.68,"Temp_Prom":63.68},{"fecha":"2025-12-11","Tan_Min":728.57,"Tan_Max":844.9,"Tan_Prom":760.94,"diff":62669.0,"Horas":17.41,"Temp_Prom":65.71},{"fecha":"2025-12-12","Tan_Min":734.69,"Tan_Max":887.76,"Tan_Prom":778.86,"diff":45842.0,"Horas":12.73,"Temp_Prom":65.15},{"fecha":"2026-01-01","Tan_Min":740.82,"Tan_Max":881.63,"Tan_Prom":776.65,"diff":27120.0,"Horas":7.53,"Temp_Prom":64.22},{"fecha":"2026-01-03","Tan_Min":851.02,"Tan_Max":942.86,"Tan_Prom":903.03,"diff":25350.0,"Horas":7.04,"Temp_Prom":64.75},{"fecha":"2026-01-04","Tan_Min":826.53,"Tan_Max":893.88,"Tan_Prom":882.1,"diff":49318.0,"Horas":13.7,"Temp_Prom":64.91},{"fecha":"2026-01-05","Tan_Min":808.16,"Tan_Max":906.12,"Tan_Prom":874.16,"diff":28049.0,"Horas":7.79,"Temp_Prom":62.83},{"fecha":"2026-01-06","Tan_Min":795.92,"Tan_Max":906.12,"Tan_Prom":856.57,"diff":51599.0,"Horas":14.33,"Temp_Prom":67.75},{"fecha":"2026-01-07","Tan_Min":795.92,"Tan_Max":961.22,"Tan_Prom":852.48,"diff":47941.0,"Horas":13.32,"Temp_Prom":67.93},{"fecha":"2026-02-01","Tan_Min":740.82,"Tan_Max":906.12,"Tan_Prom":772.77,"diff":45480.0,"Horas":12.63,"Temp_Prom":66.12},{"fecha":"2026-02-03","Tan_Min":857.14,"Tan_Max":942.86,"Tan_Prom":904.61,"diff":46831.0,"Horas":13.01,"Temp_Prom":64.82},{"fecha":"2026-02-04","Tan_Min":826.53,"Tan_Max":955.1,"Tan_Prom":890.5,"diff":35460.0,"Horas":9.85,"Temp_Prom":62.11},{"fecha":"2026-02-05","Tan_Min":808.16,"Tan_Max":924.49,"Tan_Prom":875.37,"diff":46709.0,"Horas":12.97,"Temp_Prom":62.47},{"fecha":"2026-02-06","Tan_Min":795.92,"Tan_Max":912.24,"Tan_Prom":857.65,"diff":50040.0,"Horas":13.9,"Temp_Prom":67.81},{"fecha":"2026-02-07","Tan_Min":795.92,"Tan_Max":887.76,"Tan_Prom":852.18,"diff":52261.0,"Horas":14.52,"Temp_Prom":67.66},{"fecha":"2026-03-01","Tan_Min":728.57,"Tan_Max":906.12,"Tan_Prom":785.66,"diff":46407.0,"Horas":12.89,"Temp_Prom":62.38},{"fecha":"2026-03-03","Tan_Min":857.14,"Tan_Max":924.49,"Tan_Prom":899.54,"diff":46891.0,"Horas":13.03,"Temp_Prom":65.58},{"fecha":"2026-03-04","Tan_Min":826.53,"Tan_Max":948.98,"Tan_Prom":890.1,"diff":38252.0,"Horas":10.63,"Temp_Prom":62.46},{"fecha":"2026-03-05","Tan_Min":808.16,"Tan_Max":918.37,"Tan_Prom":872.68,"diff":29611.0,"Horas":8.23,"Temp_Prom":65.13},{"fecha":"2026-03-06","Tan_Min":795.92,"Tan_Max":887.76,"Tan_Prom":856.47,"diff":52166.0,"Horas":14.49,"Temp_Prom":66.91},{"fecha":"2026-03-07","Tan_Min":789.8,"Tan_Max":893.88,"Tan_Prom":851.14,"diff":51452.0,"Horas":14.29,"Temp_Prom":68.3},{"fecha":"2026-04-01","Tan_Min":734.69,"Tan_Max":936.73,"Tan_Prom":778.55,"diff":26309.0,"Horas":7.31,"Temp_Prom":63.86},{"fecha":"2026-04-03","Tan_Min":857.14,"Tan_Max":942.86,"Tan_Prom":901.88,"diff":47343.0,"Horas":13.15,"Temp_Prom":66.89},{"fecha":"2026-04-04","Tan_Min":832.65,"Tan_Max":948.98,"Tan_Prom":888.5,"diff":46292.0,"Horas":12.86,"Temp_Prom":66.68},{"fecha":"2026-04-05","Tan_Min":808.16,"Tan_Max":918.37,"Tan_Prom":871.75,"diff":50910.0,"Horas":14.14,"Temp_Prom":66.68},{"fecha":"2026-04-06","Tan_Min":795.92,"Tan_Max":979.59,"Tan_Prom":856.68,"diff":50760.0,"Horas":14.1,"Temp_Prom":66.91},{"fecha":"2026-04-07","Tan_Min":789.8,"Tan_Max":893.88,"Tan_Prom":851.41,"diff":51417.0,"Horas":14.28,"Temp_Prom":67.67},{"fecha":"2026-05-01","Tan_Min":740.82,"Tan_Max":881.63,"Tan_Prom":771.69,"diff":43769.0,"Horas":12.16,"Temp_Prom":66.91},{"fecha":"2026-05-03","Tan_Min":851.02,"Tan_Max":912.24,"Tan_Prom":896.91,"diff":46411.0,"Horas":12.89,"Temp_Prom":65.85},{"fecha":"2026-05-04","Tan_Min":826.53,"Tan_Max":918.37,"Tan_Prom":886.73,"diff":31439.0,"Horas":8.73,"Temp_Prom":62.96},{"fecha":"2026-05-05","Tan_Min":808.16,"Tan_Max":918.37,"Tan_Prom":871.35,"diff":52889.0,"Horas":14.69,"Temp_Prom":66.77},{"fecha":"2026-05-06","Tan_Min":795.92,"Tan_Max":991.84,"Tan_Prom":854.73,"diff":51180.0,"Horas":14.22,"Temp_Prom":66.97},{"fecha":"2026-05-07","Tan_Min":789.8,"Tan_Max":961.22,"Tan_Prom":852.32,"diff":27418.0,"Horas":7.62,"Temp_Prom":63.11},{"fecha":"2026-06-01","Tan_Min":740.82,"Tan_Max":900.0,"Tan_Prom":772.23,"diff":46919.0,"Horas":13.03,"Temp_Prom":66.4},{"fecha":"2026-06-03","Tan_Min":851.02,"Tan_Max":924.49,"Tan_Prom":896.23,"diff":47490.0,"Horas":13.19,"Temp_Prom":65.52},{"fecha":"2026-06-04","Tan_Min":826.53,"Tan_Max":942.86,"Tan_Prom":885.56,"diff":41340.0,"Horas":11.48,"Temp_Prom":66.39},{"fecha":"2026-06-05","Tan_Min":808.16,"Tan_Max":918.37,"Tan_Prom":870.18,"diff":53430.0,"Horas":14.84,"Temp_Prom":67.41},{"fecha":"2026-06-06","Tan_Min":795.92,"Tan_Max":912.24,"Tan_Prom":852.92,"diff":50011.0,"Horas":13.89,"Temp_Prom":67.59},{"fecha":"2026-07-01","Tan_Min":734.69,"Tan_Max":942.86,"Tan_Prom":771.01,"diff":48930.0,"Horas":13.59,"Temp_Prom":66.6},{"fecha":"2026-07-03","Tan_Min":844.9,"Tan_Max":900.0,"Tan_Prom":894.86,"diff":47280.0,"Horas":13.13,"Temp_Prom":67.08},{"fecha":"2026-07-04","Tan_Min":826.53,"Tan_Max":942.86,"Tan_Prom":886.23,"diff":48061.0,"Horas":13.35,"Temp_Prom":66.32},{"fecha":"2026-07-05","Tan_Min":808.16,"Tan_Max":875.51,"Tan_Prom":866.87,"diff":53006.0,"Horas":14.72,"Temp_Prom":66.64},{"fecha":"2026-07-06","Tan_Min":789.8,"Tan_Max":985.71,"Tan_Prom":857.5,"diff":27662.0,"Horas":7.68,"Temp_Prom":63.34},{"fecha":"2026-08-01","Tan_Min":740.82,"Tan_Max":863.27,"Tan_Prom":771.16,"diff":48089.0,"Horas":13.36,"Temp_Prom":66.79},{"fecha":"2026-08-03","Tan_Min":838.78,"Tan_Max":942.86,"Tan_Prom":900.94,"diff":35670.0,"Horas":9.91,"Temp_Prom":61.86},{"fecha":"2026-08-04","Tan_Min":826.53,"Tan_Max":1010.2,"Tan_Prom":885.72,"diff":48269.0,"Horas":13.41,"Temp_Prom":64.99},{"fecha":"2026-08-05","Tan_Min":808.16,"Tan_Max":973.47,"Tan_Prom":870.1,"diff":51362.0,"Horas":14.27,"Temp_Prom":67.12},{"fecha":"2026-08-06","Tan_Min":783.67,"Tan_Max":893.88,"Tan_Prom":857.46,"diff":27419.0,"Horas":7.62,"Temp_Prom":59.45},{"fecha":"2026-09-01","Tan_Min":740.82,"Tan_Max":906.12,"Tan_Prom":781.4,"diff":53550.0,"Horas":14.88,"Temp_Prom":62.96},{"fecha":"2026-09-03","Tan_Min":844.9,"Tan_Max":948.98,"Tan_Prom":896.72,"diff":48809.0,"Horas":13.56,"Temp_Prom":64.31},{"fecha":"2026-09-04","Tan_Min":826.53,"Tan_Max":955.1,"Tan_Prom":887.56,"diff":48989.0,"Horas":13.61,"Temp_Prom":64.15},{"fecha":"2026-09-05","Tan_Min":808.16,"Tan_Max":900.0,"Tan_Prom":868.1,"diff":36872.0,"Horas":10.24,"Temp_Prom":65.91},{"fecha":"2026-09-06","Tan_Min":795.92,"Tan_Max":875.51,"Tan_Prom":852.27,"diff":52739.0,"Horas":14.65,"Temp_Prom":65.68},{"fecha":"2026-10-01","Tan_Min":734.69,"Tan_Max":887.76,"Tan_Prom":772.98,"diff":46350.0,"Horas":12.88,"Temp_Prom":65.57},{"fecha":"2026-10-03","Tan_Min":857.14,"Tan_Max":912.24,"Tan_Prom":898.68,"diff":48782.0,"Horas":13.55,"Temp_Prom":65.08},{"fecha":"2026-10-04","Tan_Min":826.53,"Tan_Max":936.73,"Tan_Prom":885.8,"diff":48749.0,"Horas":13.54,"Temp_Prom":65.03},{"fecha":"2026-10-05","Tan_Min":802.04,"Tan_Max":900.0,"Tan_Prom":870.04,"diff":26369.0,"Horas":7.32,"Temp_Prom":62.58},{"fecha":"2026-10-06","Tan_Min":789.8,"Tan_Max":887.76,"Tan_Prom":855.94,"diff":56701.0,"Horas":15.75,"Temp_Prom":62.36},{"fecha":"2026-11-01","Tan_Min":734.69,"Tan_Max":924.49,"Tan_Prom":779.47,"diff":26787.0,"Horas":7.44,"Temp_Prom":63.43},{"fecha":"2026-11-03","Tan_Min":851.02,"Tan_Max":906.12,"Tan_Prom":897.7,"diff":49619.0,"Horas":13.78,"Temp_Prom":65.31},{"fecha":"2026-11-04","Tan_Min":826.53,"Tan_Max":900.0,"Tan_Prom":882.14,"diff":46443.0,"Horas":12.9,"Temp_Prom":66.0},{"fecha":"2026-11-05","Tan_Min":808.16,"Tan_Max":924.49,"Tan_Prom":867.35,"diff":51689.0,"Horas":14.36,"Temp_Prom":67.79},{"fecha":"2026-11-06","Tan_Min":795.92,"Tan_Max":906.12,"Tan_Prom":852.32,"diff":52079.0,"Horas":14.47,"Temp_Prom":67.17},{"fecha":"2026-12-01","Tan_Min":734.69,"Tan_Max":906.12,"Tan_Prom":780.57,"diff":25557.0,"Horas":7.1,"Temp_Prom":63.65},{"fecha":"2026-12-03","Tan_Min":851.02,"Tan_Max":906.12,"Tan_Prom":896.43,"diff":48512.0,"Horas":13.48,"Temp_Prom":65.74},{"fecha":"2026-12-04","Tan_Min":820.41,"Tan_Max":900.0,"Tan_Prom":881.65,"diff":28169.0,"Horas":7.82,"Temp_Prom":63.95},{"fecha":"2026-12-05","Tan_Min":795.92,"Tan_Max":967.35,"Tan_Prom":873.73,"diff":58559.0,"Horas":16.27,"Temp_Prom":61.29},{"fecha":"2026-12-06","Tan_Min":795.92,"Tan_Max":887.76,"Tan_Prom":850.92,"diff":51633.0,"Horas":14.34,"Temp_Prom":67.4}];
+        // Arreglos de resúmenes compactos y súper ligeros
+        const listasFechas = ["2025-11-05", "2025-11-06", "2025-11-07", "2025-11-08", "2025-11-09", "2025-11-10", "2025-11-11", "2025-11-12", "2025-11-13", "2025-11-14", "2025-11-15", "2025-11-16", "2025-11-17", "2025-11-18", "2025-11-19", "2025-11-20", "2025-11-21", "2025-11-22", "2025-11-23", "2025-11-24", "2025-11-25", "2025-11-26", "2025-11-27", "2025-11-28", "2025-11-29", "2025-11-30", "2025-12-01", "2025-12-02", "2025-12-03", "2025-12-04", "2025-12-05", "2025-12-06", "2025-12-07", "2025-12-08", "2025-12-09", "2025-12-10", "2025-12-11", "2025-12-12", "2025-12-13", "2025-12-14", "2025-12-15", "2025-12-16", "2025-12-17", "2025-12-18", "2025-12-19", "2025-12-20", "2025-12-21", "2025-12-22", "2025-12-23", "2025-12-24", "2025-12-25", "2025-12-26", "2025-12-27", "2025-12-28", "2025-12-29", "2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", "2026-01-09", "2026-01-10", "2026-01-11", "2026-01-12", "2026-01-13", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23", "2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27", "2026-02-28", "2026-03-01", "2026-03-02", "2026-03-03", "2026-03-04", "2026-03-05", "2026-03-06", "2026-03-07", "2026-03-08", "2026-03-09", "2026-03-10", "2026-03-11", "2026-03-12", "2026-03-13", "2026-03-14", "2026-03-15", "2026-03-16", "2026-03-17", "2026-03-18", "2026-03-19", "2026-03-20", "2026-03-21", "2026-03-22", "2026-03-23", "2026-03-24", "2026-03-25", "2026-03-26", "2026-03-27", "2026-03-28", "2026-03-29", "2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02", "2026-04-03", "2026-04-04", "2026-04-05", "2026-04-06", "2026-04-07", "2026-04-08", "2026-04-09", "2026-04-10", "2026-04-11", "2026-04-12", "2026-04-13", "2026-04-14", "2026-04-15", "2026-04-16", "2026-04-17", "2026-04-18", "2026-04-19", "2026-04-20", "2026-04-21", "2026-04-22", "2026-04-23", "2026-04-24", "2026-04-25", "2026-04-26", "2026-04-27", "2026-04-28", "2026-04-29", "2026-04-30", "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07", "2026-05-08", "2026-05-09", "2026-05-10", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14", "2026-05-15", "2026-05-16", "2026-05-17", "2026-05-18", "2026-05-19", "2026-05-20", "2026-05-21", "2026-05-22", "2026-05-23", "2026-05-24", "2026-05-25", "2026-05-26", "2026-05-27", "2026-05-28", "2026-05-29", "2026-05-30", "2026-05-31", "2026-06-01", "2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05", "2026-06-06", "2026-06-07", "2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14", "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21", "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28", "2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05"];
+        const listasTanMin = [592.94, 716.33, 716.33, 722.45, 716.33, 722.45, 722.45, 728.57, 728.57, 728.57, 728.57, 728.57, 728.57, 734.69, 728.57, 728.57, 734.69, 734.69, 734.69, 734.69, 734.69, 734.69, 734.69, 734.69, 734.69, 734.69, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 734.69, 734.69, 740.82, 740.82, 734.69, 734.69, 740.82, 734.69, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 734.69, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 740.82, 728.57, 734.69, 740.82, 740.82, 734.69, 740.82, 740.82, 734.69, 734.69, 734.69, 740.82, 746.94, 728.57, 728.57, 728.57, 753.06, 863.27, 863.27, 863.27, 863.27, 863.27, 863.27, 851.02, 857.14, 857.14, 857.14, 851.02, 851.02, 844.9, 838.78, 844.9, 857.14, 851.02, 851.02, 851.02, 851.02, 844.9, 838.78, 844.9, 838.78, 832.65, 838.78, 838.78, 832.65, 832.65, 832.65, 832.65, 832.65, 832.65, 832.65, 826.53, 826.53, 826.53, 826.53, 826.53, 826.53, 832.65, 826.53, 826.53, 826.53, 826.53, 826.53, 826.53, 826.53, 820.41, 826.53, 820.41, 820.41, 820.41, 814.29, 820.41, 814.29, 820.41, 820.41, 820.41, 820.41, 820.41, 814.29, 808.16, 814.29, 814.29, 814.29, 808.16, 808.16, 808.16, 808.16, 808.16, 808.16, 808.16, 808.16, 808.16, 808.16, 802.04, 808.16, 795.92, 802.04, 802.04, 802.04, 802.04, 795.92, 795.92, 802.04, 795.92, 795.92, 795.92, 795.92, 795.92, 802.04, 795.92, 789.8, 795.92, 795.92, 795.92, 789.8, 795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 789.8, 783.67, 795.92, 789.8, 795.92, 795.92, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 789.8, 783.67, 783.67, 789.8, 789.8, 783.67, 795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 795.92, 789.8, 789.8, 789.8];
+        const listasTanMax = [740.82, 814.29, 844.9, 851.02, 857.14, 851.02, 826.53, 844.9, 844.9, 857.14, 863.27, 820.41, 869.39, 863.27, 863.27, 875.51, 844.9, 869.39, 857.14, 869.39, 869.39, 875.51, 875.51, 875.51, 869.39, 881.63, 875.51, 838.78, 906.12, 869.39, 893.88, 918.37, 893.88, 863.27, 875.51, 875.51, 893.88, 887.76, 875.51, 893.88, 875.51, 930.61, 875.51, 869.39, 869.39, 881.63, 869.39, 869.39, 857.14, 869.39, 887.76, 869.39, 869.39, 893.88, 906.12, 875.51, 924.49, 881.63, 906.12, 906.12, 936.73, 881.63, 900.0, 942.86, 863.27, 906.12, 887.76, 924.49, 906.12, 875.51, 759.18, 906.12, 814.29, 863.27, 906.12, 967.35, 1010.2, 1034.69, 924.49, 918.37, 918.37, 942.86, 942.86, 924.49, 942.86, 912.24, 924.49, 900.0, 942.86, 948.98, 912.24, 906.12, 906.12, 912.24, 912.24, 942.86, 936.73, 1040.82, 942.86, 924.49, 936.73, 924.49, 906.12, 918.37, 906.12, 1004.08, 1004.08, 936.73, 918.37, 924.49, 906.12, 918.37, 893.88, 955.1, 948.98, 948.98, 918.37, 942.86, 942.86, 1010.2, 955.1, 936.73, 900.0, 900.0, 942.86, 887.76, 948.98, 997.96, 961.22, 973.47, 912.24, 942.86, 1004.08, 997.96, 1004.08, 893.88, 997.96, 948.98, 930.61, 955.1, 948.98, 930.61, 906.12, 924.49, 918.37, 918.37, 918.37, 918.37, 875.51, 973.47, 900.0, 900.0, 924.49, 967.35, 881.63, 869.39, 924.49, 881.63, 875.51, 881.63, 900.0, 912.24, 912.24, 906.12, 893.88, 912.24, 900.0, 893.88, 906.12, 893.88, 900.0, 912.24, 900.0, 906.12, 912.24, 887.76, 979.59, 991.84, 912.24, 985.71, 893.88, 875.51, 887.76, 906.12, 887.76, 887.76, 961.22, 906.12, 893.88, 887.76, 900.0, 893.88, 900.0, 918.37, 900.0, 893.88, 887.76, 955.1, 912.24, 900.0, 906.12, 912.24, 887.76, 961.22, 887.76, 893.88, 893.88, 961.22];
+        const listasTanProm = [725.24, 742.39, 745.45, 752.39, 760.23, 750.15, 756.45, 760.94, 756.43, 760.74, 765.01, 761.59, 770.4, 765.72, 760.33, 776.7, 767.24, 766.54, 807.46, 774.33, 774.25, 774.97, 779.26, 774.14, 774.34, 781.38, 770.82, 771.7, 772.42, 789.3, 772.44, 772.78, 780.79, 781.87, 779.8, 778.29, 784.32, 778.86, 779.97, 785.63, 783.16, 777.96, 778.57, 782.68, 773.6, 769.01, 769.2, 764.55, 775.54, 778.43, 786.79, 775.02, 777.37, 780.47, 781.56, 774.43, 774.39, 776.65, 772.77, 785.66, 778.55, 771.69, 772.23, 771.01, 771.16, 781.4, 772.98, 779.47, 780.57, 787.45, 752.98, 760.1, 756.09, 762.72, 840.76, 904.73, 906.02, 904.51, 902.76, 902.43, 902.71, 903.03, 904.61, 899.54, 901.88, 896.91, 896.23, 894.86, 900.94, 896.72, 898.68, 897.7, 896.43, 896.05, 884.23, 902.68, 902.58, 897.25, 896.52, 894.74, 894.61, 894.21, 890.11, 891.51, 889.34, 889.87, 889.41, 890.19, 889.34, 883.4, 887.41, 889.0, 882.1, 890.5, 890.1, 888.5, 886.73, 885.56, 886.23, 885.72, 887.56, 885.8, 882.14, 881.65, 889.52, 878.09, 880.1, 880.56, 879.57, 882.27, 882.39, 881.13, 878.35, 880.46, 877.3, 878.71, 876.6, 877.95, 877.6, 877.56, 876.62, 874.85, 874.16, 875.37, 872.68, 871.75, 871.35, 870.18, 866.87, 870.1, 868.1, 870.04, 867.35, 873.73, 863.88, 862.77, 862.61, 862.19, 859.31, 863.67, 861.42, 860.14, 858.77, 857.29, 859.23, 863.06, 859.09, 857.94, 857.21, 857.83, 857.86, 854.91, 860.24, 856.57, 857.65, 856.47, 856.68, 854.73, 852.92, 857.5, 857.46, 852.27, 855.94, 852.32, 850.92, 851.18, 860.31, 859.51, 848.56, 847.86, 847.32, 846.72, 847.08, 855.56, 845.54, 845.58, 842.94, 856.04, 857.79, 857.48, 861.93, 856.52, 853.2, 852.48, 852.18, 851.14, 851.41, 852.32];
+        const listasHoras = [8.53, 13.47, 13.34, 13.13, 7.87, 14.74, 17.04, 17.42, 15.11, 13.48, 13.65, 11.03, 9.87, 13.08, 11.69, 16.62, 13.92, 11.76, 12.27, 12.74, 13.68, 13.25, 13.14, 13.03, 13.42, 8.48, 10.67, 12.93, 13.41, 12.9, 12.97, 13.26, 7.82, 7.58, 12.91, 13.22, 13.69, 12.74, 13.22, 8.63, 16.49, 13.36, 13.41, 13.33, 12.12, 13.23, 8.78, 12.49, 13.71, 13.52, 8.48, 12.37, 12.72, 10.01, 12.08, 13.13, 12.85, 7.54, 12.64, 12.9, 7.32, 12.17, 13.04, 13.6, 13.37, 14.88, 12.88, 7.45, 7.11, 4.06, 8.79, 12.62, 12.95, 12.53, 10.5, 13.38, 13.13, 13.62, 12.79, 13.12, 12.94, 7.05, 13.02, 13.03, 13.16, 12.9, 13.2, 13.14, 9.92, 13.57, 13.56, 13.79, 13.48, 13.58, 24.0, 9.21, 14.39, 13.22, 12.95, 13.08, 13.05, 13.18, 7.62, 7.62, 13.33, 13.62, 13.23, 13.72, 13.36, 10.72, 12.84, 13.39, 13.7, 9.85, 10.63, 12.86, 8.73, 11.48, 13.34, 13.41, 13.61, 13.53, 12.91, 7.82, 14.88, 12.87, 13.49, 13.83, 13.54, 13.05, 7.98, 12.2, 13.1, 12.97, 14.41, 14.69, 11.81, 10.1, 13.19, 13.84, 13.85, 14.39, 7.78, 12.98, 8.23, 14.14, 14.68, 14.84, 14.72, 14.27, 10.25, 7.32, 14.36, 16.26, 14.33, 13.64, 13.63, 14.1, 7.54, 7.05, 12.22, 12.87, 13.72, 13.2, 14.6, 8.07, 14.41, 14.63, 14.8, 14.58, 15.23, 14.43, 9.67, 14.33, 13.9, 14.48, 14.11, 14.22, 13.89, 7.68, 7.61, 14.65, 15.74, 14.48, 14.34, 14.18, 10.36, 10.34, 13.75, 14.51, 14.45, 14.52, 13.92, 7.72, 13.93, 14.41, 14.48, 14.46, 14.31, 14.28, 8.23, 7.33, 13.27, 13.32, 14.52, 14.29, 14.28, 7.62];
+        const listasTemp = [-29.09, 0.0, 68.19, 66.14, 63.18, 68.51, 65.95, 65.71, 67.79, 66.58, 65.52, 65.44, 64.32, 66.13, 68.61, 62.94, 66.04, 67.18, 48.8, 64.75, 65.46, 65.31, 63.46, 65.82, 65.71, 62.65, 67.05, 66.08, 66.53, 59.05, 66.94, 66.53, 63.83, 61.33, 64.32, 65.05, 63.68, 65.15, 64.61, 62.44, 63.38, 65.13, 65.38, 63.25, 66.73, 59.52, 57.35, 58.98, 62.94, 64.14, 61.16, 65.31, 64.52, 64.47, 63.99, 65.97, 65.59, 64.22, 66.12, 62.38, 63.86, 66.91, 66.4, 66.6, 66.79, 62.96, 65.57, 63.43, 63.65, 59.21, 69.97, 66.4, 66.56, 65.87, 45.78, 66.77, 66.68, 66.46, 65.9, 65.64, 66.12, 64.75, 64.82, 65.58, 66.89, 65.85, 65.52, 67.08, 61.86, 64.31, 65.08, 65.31, 65.74, 64.74, 56.87, 62.59, 61.52, 65.92, 66.57, 66.25, 66.17, 66.1, 63.9, 63.45, 66.52, 66.53, 64.83, 66.51, 64.99, 60.71, 65.51, 64.16, 64.91, 62.11, 62.46, 66.68, 62.96, 66.39, 66.32, 64.99, 64.15, 65.03, 66.0, 63.95, 60.07, 66.77, 66.61, 66.9, 66.64, 66.01, 63.82, 64.09, 64.27, 67.16, 68.15, 63.6, 67.63, 65.9, 65.77, 66.22, 65.11, 66.61, 62.83, 62.47, 65.13, 66.68, 66.77, 67.41, 66.64, 67.12, 65.91, 62.58, 67.79, 61.29, 67.64, 68.35, 67.45, 68.0, 63.69, 56.61, 66.76, 68.18, 67.96, 69.06, 66.5, 62.75, 66.7, 66.88, 67.46, 65.34, 65.03, 67.08, 59.66, 67.75, 67.81, 66.91, 66.91, 66.97, 67.59, 63.34, 59.45, 65.68, 62.36, 67.17, 67.4, 67.28, 55.74, 59.04, 67.82, 68.06, 67.53, 67.31, 66.59, 61.58, 67.31, 66.76, 67.47, 66.69, 67.6, 67.2, 61.73, 65.01, 67.74, 67.93, 67.66, 68.3, 67.67, 63.11];
+
         let chart1, chart2, chart3;
 
         function inicializarDashboard() {
-            if(dbData && dbData.length > 0) {
-                document.getElementById('fechaInicio').value = dbData[0].fecha;
-                document.getElementById('fechaFin').value = dbData[dbData.length - 1].fecha;
+            if(listasFechas.length > 0) {
+                document.getElementById('fechaInicio').value = listasFechas[0];
+                document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
                 filtrarDashboard();
-            } else {
-                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding:20px;">No se encontraron datos.</p>';
             }
         }
 
         function filtrarDashboard() {
-            if (!dbData || dbData.length === 0) return;
+            const inicio = document.getElementById('fechaInicio').value;
+            const fin = document.getElementById('fechaFin').value;
             
-            let inicio = document.getElementById('fechaInicio').value;
-            let fin = document.getElementById('fechaFin').value;
+            if(!inicio || !fin) return;
             
-            let dataFiltrada = dbData;
-            if (inicio && fin) {
-                dataFiltrada = dbData.filter(d => d.fecha >= inicio && d.fecha <= fin);
-            }
-
-            if (dataFiltrada.length === 0) return;
-
-            const labels = dataFiltrada.map(d => d.fecha);
-            const tanMin = dataFiltrada.map(d => d.Tan_Min);
-            const tanMax = dataFiltrada.map(d => d.Tan_Max);
-            const tanProm = dataFiltrada.map(d => d.Tan_Prom);
-            const horas = dataFiltrada.map(d => d.Horas);
-            const temp = dataFiltrada.map(d => d.Temp_Prom);
+            const indicesFiltrados = [];
+            listasFechas.forEach((f, index) => {
+                if(f >= inicio && f <= fin) indicesFiltrados.push(index);
+            });
+            
+            const labels = indicesFiltrados.map(i => listasFechas[i]);
+            const tanMin = indicesFiltrados.map(i => listasTanMin[i]);
+            const tanMax = indicesFiltrados.map(i => listasTanMax[i]);
+            const tanProm = indicesFiltrados.map(i => listasTanProm[i]);
+            const horas = indicesFiltrados.map(i => listasHoras[i]);
+            const temp = indicesFiltrados.map(i => listasTemp[i]);
 
             renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp);
-            renderizarTabla(dataFiltrada);
+            renderizarTabla(indicesFiltrados);
         }
 
         function renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp) {
-            if(chart1) chart1.destroy(); if(chart2) chart2.destroy(); if(chart3) chart3.destroy();
+            if(chart1) chart1.destroy();
+            if(chart2) chart2.destroy();
+            if(chart3) chart3.destroy();
 
             chart1 = new Chart(document.getElementById('chartTanDelta'), {
-                type: 'line', data: { labels: labels, datasets: [
-                    { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1 },
-                    { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
-                    { label: 'Mín Tan Delta', data: tanMin, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1.5 }
-                ]}, options: { responsive: true, maintainAspectRatio: false }
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2 },
+                        { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
+                        { label: 'Mín Tan Delta', data: tanMin, borderColor: '#5a5a5a', backgroundColor: 'transparent', borderWidth: 1.5 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
             chart2 = new Chart(document.getElementById('chartHoras'), {
-                type: 'bar', data: { labels: labels, datasets: [
-                    { label: 'Horas Operación', data: horas, backgroundColor: '#475569', hoverBackgroundColor: '#d12027', borderRadius: 6 }
-                ]}, options: { responsive: true, maintainAspectRatio: false }
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: 'Horas', data: horas, backgroundColor: '#5a5a5a', hoverBackgroundColor: '#d12027', borderRadius: 4 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
             chart3 = new Chart(document.getElementById('chartCorrelacion'), {
-                type: 'bar', data: { labels: labels, datasets: [
-                    { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, tension: 0.1 },
-                    { type: 'bar', label: 'Temp Promedio', data: temp, backgroundColor: 'rgba(71, 85, 105, 0.12)', borderColor: '#475569', yAxisID: 'yTemp', borderRadius: 4 }
-                ]}, options: { responsive: true, maintainAspectRatio: false, scales: { yTan: { type: 'linear', position: 'left' }, yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } } } }
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5 },
+                        { type: 'bar', label: 'Temperatura Promedio', data: temp, backgroundColor: 'rgba(90, 90, 90, 0.15)', borderColor: '#5a5a5a', yAxisID: 'yTemp', borderRadius: 3 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        yTan: { type: 'linear', position: 'left' },
+                        yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+                    }
+                }
             });
         }
 
-        function renderizarTabla(data) {
-            let html = `<table><thead><tr><th>Fecha</th><th>Tan Delta (Mín)</th><th>Tan Delta (Máx)</th><th>Tan Delta (Prom)</th><th>Horas</th><th>Temp. Promedio</th></tr></thead><tbody>`;
-            data.forEach(d => {
-                html += `<tr><td style="font-weight:600; color:#475569;">${d.fecha}</td><td>${d.Tan_Min}</td><td style="color:#d12027; font-weight:700;">${d.Tan_Max}</td><td>${d.Tan_Prom}</td><td style="font-weight:500;">${d.Horas} hrs</td><td>${d.Temp_Prom}</td></tr>`;
+        function renderizarTabla(indices) {
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tan Delta (Mín)</th>
+                        <th>Tan Delta (Máx)</th>
+                        <th>Tan Delta (Prom)</th>
+                        <th>Horas de Operación</th>
+                        <th>Temp. Aceite Promedio</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            indices.forEach(i => {
+                html += `<tr>
+                    <td style="font-weight:600;">${listasFechas[i]}</td>
+                    <td>${listasTanMin[i]}</td>
+                    <td style="color:#d12027; font-weight:600;">${listasTanMax[i]}</td>
+                    <td>${listasTanProm[i]}</td>
+                    <td>${listasHoras[i]} hrs</td>
+                    <td>${listasTemp[i]}</td>
+                </tr>`;
             });
+            
             html += '</tbody></table>';
             document.getElementById('contenedorTabla').innerHTML = html;
         }
 
         function exportarPDF() {
             document.getElementById('action-panel').classList.add('no-render');
-            html2pdf().set({ margin: 10, filename: 'reporte_artimo.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' } }).from(document.getElementById('content-to-pdf')).save().then(() => { document.getElementById('action-panel').classList.remove('no-render'); });
+            const elemento = document.getElementById('content-to-pdf');
+            const opciones = {
+                margin:       [10, 10, 10, 10],
+                filename:     'reporte_monitoreo_artimo.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a3', orientation: 'landscape' }
+            };
+            html2pdf().set(opciones).from(elemento).save().then(() => {
+                document.getElementById('action-panel').classList.remove('no-render');
+            });
         }
 
         inicializarDashboard();
