@@ -9,6 +9,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@1,400;1,600&display=swap');
+        
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 40px; background-color: #f4f5f7; color: #4a4a4a; }
         .dashboard-wrapper { max-width: 1300px; margin: 0 auto; }
         .header-container { text-align: center; margin-bottom: 35px; }
@@ -35,6 +37,22 @@
         th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
         tr:hover { background-color: #fdf2f2; }
         .no-render { display: none !important; }
+        
+        /* Estilos para la firma elegante */
+        .footer-signature { 
+            text-align: center; 
+            margin-top: 50px; 
+            padding-top: 25px; 
+            border-top: 1px solid #e2e8f0; 
+            font-family: 'Montserrat', sans-serif; 
+            font-size: 15px; 
+            color: #6a7280; 
+            font-style: italic; 
+        }
+        .footer-signature span { 
+            font-weight: 600; 
+            color: #d12027; 
+        }
     </style>
 </head>
 <body>
@@ -79,6 +97,10 @@
         <div class="table-container">
             <h3>Historial Consolidado Filtrado</h3>
             <div id="contenedorTabla"></div>
+        </div>
+        
+        <div class="footer-signature">
+            Dashboard realizado por <span>Carlos Colorado</span> - Líder de Producto
         </div>
     </div>
 
