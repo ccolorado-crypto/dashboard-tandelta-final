@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 import glob
-import json
 from datetime import datetime
 import pytz
 
@@ -32,71 +31,63 @@ def generar_dashboard():
                 temp_df = pd.read_csv(archivo, sep='\t')
                 temp_df.columns = temp_df.columns.str.strip().str.replace('"', '').str.replace("'", "").str.lower()
                 lista_df.append(temp_df)
-            except Exception as e:
-                print(f"-> Error ignorado en archivo {os.path.basename(archivo)}: {e}")
+            except:
+                pass
         
         df = pd.concat(lista_df, ignore_index=True)
         df.to_csv(archivo_salida_csv, index=False, sep=';')
         
-        # 1. BLINDAJE DE FECHAS: Convertir y destruir valores corruptos inmediatamente
-        df['datetimestamp'] = pd.to_datetime(df['datetimestamp'], errors='coerce')
-        # Limpieza de valores numéricos (reemplazando comas por si el archivo viene en formato europeo)
-        df['numericvalue'] = pd.to_numeric(df['numericvalue'].astype(str).str.replace('"', '').str.replace("'", "").str.replace(',', '.'), errors='coerce')
+        # 1. MOTOR ORIGINAL MEJORADO: Leer fechas y números
+        # dayfirst=True asegura que lea 01/07 como 1 de Julio y no como 7 de Enero
+        df['datetimestamp'] = pd.to_datetime(df['datetimestamp'], errors='coerce', dayfirst=True)
+        df['numericvalue'] = df['numericvalue'].astype(str).str.replace(',', '.')
+        df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
+        df['variableid'] = pd.to_numeric(df['variableid'], errors='coerce').fillna(0).astype(int)
         
-        # ELIMINAR CUALQUIER FILA CORRUPTA ANTES DE CONTINUAR
         df = df.dropna(subset=['datetimestamp', 'numericvalue'])
-        
-        # Ahora es 100% seguro convertir a texto
-        df['fecha_str'] = df['datetimestamp'].dt.strftime('%Y-%m-%d')
-        df['variableid_str'] = df['variableid'].astype(str).str.strip().str.replace('.0', '', regex=False)
+        df['fecha'] = df['datetimestamp'].dt.strftime('%Y-%m-%d')
         
         # 2. PROCESAR TAN DELTA (4500)
-        df_tan_delta = df[(df['variableid_str'] == '4500') | (df['variableid'] == 4500)].copy()
-        
-        if df_tan_delta.empty:
-            resumen_tan = pd.DataFrame(columns=['fecha_str', 'Tan_Delta_Min', 'Tan_Delta_Max', 'Tan_Delta_Promedio'])
-            tiempo_operacion = pd.DataFrame(columns=['fecha_str', 'Horas_Operacion'])
+        df_tan = df[df['variableid'] == 4500].copy()
+        if df_tan.empty:
+            resumen_tan = pd.DataFrame(columns=['fecha', 'Tan_Min', 'Tan_Max', 'Tan_Prom', 'Horas'])
         else:
-            resumen_tan = df_tan_delta.groupby('fecha_str')['numericvalue'].agg(
-                Tan_Delta_Min='min', Tan_Delta_Max='max', Tan_Delta_Promedio='mean'
+            resumen_tan = df_tan.groupby('fecha')['numericvalue'].agg(
+                Tan_Min='min', Tan_Max='max', Tan_Prom='mean'
             ).reset_index()
             
-            # Cálculo de horas protegido contra desorden
-            df_tan_delta = df_tan_delta.sort_values('datetimestamp')
-            df_tan_delta['diferencia_segundos'] = df_tan_delta['datetimestamp'].diff().dt.total_seconds().fillna(0)
-            # Ignorar saltos negativos o mayores a 1 hora
-            df_tan_delta.loc[(df_tan_delta['diferencia_segundos'] > 3600) | (df_tan_delta['diferencia_segundos'] < 0), 'diferencia_segundos'] = 0
+            # Recuperamos tus horas de operación
+            df_tan = df_tan.sort_values('datetimestamp')
+            df_tan['diff'] = df_tan['datetimestamp'].diff().dt.total_seconds().fillna(0)
+            # Si el generador se apaga por más de 4 horas, cortamos el tiempo ahí
+            df_tan.loc[(df_tan['diff'] > 14400) | (df_tan['diff'] < 0), 'diff'] = 0
             
-            tiempo_operacion = df_tan_delta.groupby('fecha_str')['diferencia_segundos'].sum().reset_index()
-            tiempo_operacion['Horas_Operacion'] = tiempo_operacion['diferencia_segundos'] / 3600
-        
+            horas = df_tan.groupby('fecha')['diff'].sum().reset_index()
+            horas['Horas'] = horas['diff'] / 3600
+            resumen_tan = pd.merge(resumen_tan, horas, on='fecha', how='outer')
+
         # 3. PROCESAR TEMPERATURA (61)
-        df_temp = df[(df['variableid_str'] == '61') | (df['variableid'] == 61)].copy()
+        df_temp = df[df['variableid'] == 61].copy()
         if df_temp.empty:
-            resumen_temp = pd.DataFrame(columns=['fecha_str', 'Temp_Aceite_Promedio'])
+            resumen_temp = pd.DataFrame(columns=['fecha', 'Temp_Prom'])
         else:
-            resumen_temp = df_temp.groupby('fecha_str')['numericvalue'].agg(Temp_Aceite_Promedio='mean').reset_index()
+            resumen_temp = df_temp.groupby('fecha')['numericvalue'].agg(Temp_Prom='mean').reset_index()
         
         # 4. UNIR DATOS
-        dashboard_df = pd.merge(resumen_tan, tiempo_operacion[['fecha_str', 'Horas_Operacion']], on='fecha_str', how='outer')
-        dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha_str', how='outer')
-        dashboard_df = dashboard_df.sort_values('fecha_str').fillna(0).round(2)
+        dash = pd.merge(resumen_tan, resumen_temp, on='fecha', how='outer')
+        dash = dash.sort_values('fecha').fillna(0).round(2)
         
         zona_horaria = pytz.timezone('America/Bogota')
         fecha_actualizacion = datetime.now(zona_horaria).strftime("%d/%m/%Y a las %I:%M %p")
         
-        fechas_list = dashboard_df['fecha_str'].tolist()
-        tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
-        tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
-        tan_prom_list = dashboard_df['Tan_Delta_Promedio'].tolist()
-        horas_list = dashboard_df['Horas_Operacion'].tolist()
-        temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
+        kpi_max = float(dash['Tan_Max'].max()) if not dash.empty else 0.0
+        kpi_prom = float(dash['Tan_Prom'].mean()) if not dash.empty else 0.0
+        kpi_horas = float(dash['Horas'].sum()) if not dash.empty else 0.0
 
-        kpi_max_historico = float(dashboard_df['Tan_Delta_Max'].max()) if not dashboard_df.empty else 0.0
-        kpi_prom_historico = float(dashboard_df['Tan_Delta_Promedio'].mean()) if not dashboard_df.empty else 0.0
-        kpi_total_horas = float(dashboard_df['Horas_Operacion'].sum()) if not dashboard_df.empty else 0.0
+        # Exportamos al formato infalible JSON original
+        json_data = dash.to_json(orient='records')
 
-        # 5. HTML BLINDADO
+        # 5. HTML CON LA LÓGICA ORIGINAL RESTAURADA
         html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -154,16 +145,14 @@ def generar_dashboard():
             <div class="update-badge">Última actualización: <strong>FECHA_UPDATE_PLACEHOLDER</strong></div>
         </div>
         <div class="kpi-container">
-            <div class="kpi-card"><div class="kpi-title">Máximo Histórico Tan Delta</div><div class="kpi-value" id="kpi-max">0.00</div></div>
-            <div class="kpi-card warning"><div class="kpi-title">Promedio General Registrado</div><div class="kpi-value" id="kpi-prom">0.00</div></div>
-            <div class="kpi-card secondary"><div class="kpi-title">Total Horas de Operación</div><div class="kpi-value" id="kpi-horas">0.00 hrs</div></div>
+            <div class="kpi-card"><div class="kpi-title">Máximo Histórico Tan Delta</div><div class="kpi-value" id="kpi-max">KPI_MAX_PLACEHOLDER</div></div>
+            <div class="kpi-card warning"><div class="kpi-title">Promedio General Registrado</div><div class="kpi-value" id="kpi-prom">KPI_PROM_PLACEHOLDER</div></div>
+            <div class="kpi-card secondary"><div class="kpi-title">Total Horas de Operación</div><div class="kpi-value" id="kpi-horas">KPI_HORAS_PLACEHOLDER hrs</div></div>
         </div>
         <div class="control-panel" id="action-panel">
             <div class="filter-group">
-                <label>Desde:</label>
-                <input type="date" id="fechaInicio" onchange="filtrarDashboard()">
-                <label style="margin-left: 10px;">Hasta:</label>
-                <input type="date" id="fechaFin" onchange="filtrarDashboard()">
+                <label>Desde:</label><input type="date" id="fechaInicio" onchange="filtrarDashboard()">
+                <label style="margin-left: 10px;">Hasta:</label><input type="date" id="fechaFin" onchange="filtrarDashboard()">
             </div>
             <div class="button-group">
                 <a href="data_cruda.csv" download="data_cruda_artimo.csv" class="btn btn-secondary">📥 Descargar Data Cruda</a>
@@ -178,97 +167,74 @@ def generar_dashboard():
         <div class="table-container"><h3>Historial Consolidado Filtrado</h3><div id="contenedorTabla"></div></div>
         <div class="footer-signature">Dashboard creado por <span>Carlos Colorado</span> - Líder de Producto</div>
     </div>
+
     <script>
-        const listasFechas = FECHAS_PLACEHOLDER;
-        const listasTanMin = TANMIN_PLACEHOLDER;
-        const listasTanMax = TANMAX_PLACEHOLDER;
-        const listasTanProm = TANPROM_PLACEHOLDER;
-        const listasHoras = HORAS_PLACEHOLDER;
-        const listasTemp = TEMP_PLACEHOLDER;
-
-        document.getElementById('kpi-max').innerText = parseFloat(KPI_MAX_PLACEHOLDER).toFixed(2);
-        document.getElementById('kpi-prom').innerText = parseFloat(KPI_PROM_PLACEHOLDER).toFixed(2);
-        document.getElementById('kpi-horas').innerText = parseFloat(KPI_HORAS_PLACEHOLDER).toFixed(1) + " hrs";
-
+        const dbData = DATA_PLACEHOLDER;
         let chart1, chart2, chart3;
 
         function inicializarDashboard() {
-            if(listasFechas.length > 0) {
-                document.getElementById('fechaInicio').value = listasFechas[0];
-                document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
+            if(dbData && dbData.length > 0) {
+                document.getElementById('fechaInicio').value = dbData[0].fecha;
+                document.getElementById('fechaFin').value = dbData[dbData.length - 1].fecha;
                 filtrarDashboard();
             } else {
-                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px;">No se encontraron datos procesables.</p>';
+                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding:20px;">No se encontraron datos.</p>';
             }
         }
 
         function filtrarDashboard() {
+            if (!dbData || dbData.length === 0) return;
+            
             let inicio = document.getElementById('fechaInicio').value;
             let fin = document.getElementById('fechaFin').value;
             
-            let indicesFiltrados = [];
-            
-            // BLINDAJE DE SEGURIDAD: Si los calendarios fallan o están vacíos, dibuja TODA la data ignorando el error.
-            if (!inicio || !fin || inicio === "" || fin === "") {
-                indicesFiltrados = listasFechas.map((_, i) => i);
-            } else {
-                listasFechas.forEach((f, index) => {
-                    if(f >= inicio && f <= fin) indicesFiltrados.push(index);
-                });
+            let dataFiltrada = dbData;
+            if (inicio && fin) {
+                dataFiltrada = dbData.filter(d => d.fecha >= inicio && d.fecha <= fin);
             }
 
-            if(indicesFiltrados.length === 0) return;
+            if (dataFiltrada.length === 0) return;
 
-            const labels = indicesFiltrados.map(i => listasFechas[i]);
-            const tanMin = indicesFiltrados.map(i => listasTanMin[i]);
-            const tanMax = indicesFiltrados.map(i => listasTanMax[i]);
-            const tanProm = indicesFiltrados.map(i => listasTanProm[i]);
-            const horas = indicesFiltrados.map(i => listasHoras[i]);
-            const temp = indicesFiltrados.map(i => listasTemp[i]);
+            const labels = dataFiltrada.map(d => d.fecha);
+            const tanMin = dataFiltrada.map(d => d.Tan_Min);
+            const tanMax = dataFiltrada.map(d => d.Tan_Max);
+            const tanProm = dataFiltrada.map(d => d.Tan_Prom);
+            const horas = dataFiltrada.map(d => d.Horas);
+            const temp = dataFiltrada.map(d => d.Temp_Prom);
 
             renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp);
-            renderizarTabla(indicesFiltrados);
+            renderizarTabla(dataFiltrada);
         }
 
         function renderizarGraficas(labels, tanMin, tanMax, tanProm, horas, temp) {
             if(chart1) chart1.destroy(); if(chart2) chart2.destroy(); if(chart3) chart3.destroy();
 
             chart1 = new Chart(document.getElementById('chartTanDelta'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1 },
-                        { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
-                        { label: 'Mín Tan Delta', data: tanMin, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1.5 }
-                    ]
-                }, options: { responsive: true, maintainAspectRatio: false }
+                type: 'line', data: { labels: labels, datasets: [
+                    { label: 'Máx Tan Delta', data: tanMax, borderColor: '#d12027', backgroundColor: 'transparent', borderWidth: 2.5, tension: 0.1 },
+                    { label: 'Promedio', data: tanProm, borderColor: '#f07d1a', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 5] },
+                    { label: 'Mín Tan Delta', data: tanMin, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1.5 }
+                ]}, options: { responsive: true, maintainAspectRatio: false }
             });
 
             chart2 = new Chart(document.getElementById('chartHoras'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{ label: 'Horas Operación', data: horas, backgroundColor: '#475569', hoverBackgroundColor: '#d12027', borderRadius: 6 }]
-                }, options: { responsive: true, maintainAspectRatio: false }
+                type: 'bar', data: { labels: labels, datasets: [
+                    { label: 'Horas Operación', data: horas, backgroundColor: '#475569', hoverBackgroundColor: '#d12027', borderRadius: 6 }
+                ]}, options: { responsive: true, maintainAspectRatio: false }
             });
 
             chart3 = new Chart(document.getElementById('chartCorrelacion'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, tension: 0.1 },
-                        { type: 'bar', label: 'Temperatura Promedio', data: temp, backgroundColor: 'rgba(71, 85, 105, 0.12)', borderColor: '#475569', yAxisID: 'yTemp', borderRadius: 4 }
-                    ]
-                }, options: { responsive: true, maintainAspectRatio: false, scales: { yTan: { type: 'linear', position: 'left' }, yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } } } }
+                type: 'bar', data: { labels: labels, datasets: [
+                    { type: 'line', label: 'Tan Delta Promedio', data: tanProm, borderColor: '#d12027', backgroundColor: 'transparent', yAxisID: 'yTan', borderWidth: 2.5, tension: 0.1 },
+                    { type: 'bar', label: 'Temp Promedio', data: temp, backgroundColor: 'rgba(71, 85, 105, 0.12)', borderColor: '#475569', yAxisID: 'yTemp', borderRadius: 4 }
+                ]}, options: { responsive: true, maintainAspectRatio: false, scales: { yTan: { type: 'linear', position: 'left' }, yTemp: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } } } }
             });
         }
 
-        function renderizarTabla(indices) {
+        function renderizarTabla(data) {
             let html = `<table><thead><tr><th>Fecha</th><th>Tan Delta (Mín)</th><th>Tan Delta (Máx)</th><th>Tan Delta (Prom)</th><th>Horas</th><th>Temp. Promedio</th></tr></thead><tbody>`;
-            indices.forEach(i => {
-                html += `<tr><td style="font-weight:600; color:#475569;">${listasFechas[i]}</td><td>${listasTanMin[i]}</td><td style="color:#d12027; font-weight:700;">${listasTanMax[i]}</td><td>${listasTanProm[i]}</td><td style="font-weight:500;">${listasHoras[i]} hrs</td><td>${listasTemp[i]}</td></tr>`;
+            data.forEach(d => {
+                html += `<tr><td style="font-weight:600; color:#475569;">${d.fecha}</td><td>${d.Tan_Min}</td><td style="color:#d12027; font-weight:700;">${d.Tan_Max}</td><td>${d.Tan_Prom}</td><td style="font-weight:500;">${d.Horas} hrs</td><td>${d.Temp_Prom}</td></tr>`;
             });
             html += '</tbody></table>';
             document.getElementById('contenedorTabla').innerHTML = html;
@@ -284,17 +250,12 @@ def generar_dashboard():
 </body>
 </html>"""
         
-        html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
-        html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
-        html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
-        html_final = html_final.replace("TANPROM_PLACEHOLDER", json.dumps(tan_prom_list))
-        html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
-        html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
-        
+        # Reemplazos finales directos
+        html_final = html_content.replace("DATA_PLACEHOLDER", json_data)
         html_final = html_final.replace("FECHA_UPDATE_PLACEHOLDER", fecha_actualizacion)
-        html_final = html_final.replace("KPI_MAX_PLACEHOLDER", str(kpi_max_historico))
-        html_final = html_final.replace("KPI_PROM_PLACEHOLDER", str(kpi_prom_historico))
-        html_final = html_final.replace("KPI_HORAS_PLACEHOLDER", str(kpi_total_horas))
+        html_final = html_final.replace("KPI_MAX_PLACEHOLDER", str(round(kpi_max, 2)))
+        html_final = html_final.replace("KPI_PROM_PLACEHOLDER", str(round(kpi_prom, 2)))
+        html_final = html_final.replace("KPI_HORAS_PLACEHOLDER", str(round(kpi_horas, 1)))
         
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_final)
