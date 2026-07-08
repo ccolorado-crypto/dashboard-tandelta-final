@@ -36,58 +36,86 @@ def generar_dashboard():
         for archivo in archivos_validos:
             try:
                 temp_df = pd.read_csv(archivo, sep='\t')
-                temp_df.columns = temp_df.columns.str.strip().str.replace('"', '').str.lower()
+                # Limpiar nombres de columnas de espacios y comillas
+                temp_df.columns = temp_df.columns.str.strip().str.replace('"', '').str.replace("'", "").str.lower()
                 lista_df.append(temp_df)
             except Exception as e:
                 print(f"-> Error al leer el archivo {os.path.basename(archivo)}: {e}")
         
+        if not lista_df:
+            print("ERROR: No se pudo procesar ningún archivo.")
+            return
+
         df = pd.concat(lista_df, ignore_index=True)
         
-        # Guardamos la data cruda de forma externa (el botón de descarga apuntará aquí)
+        # Guardamos la data cruda externa primero
         df.to_csv(archivo_salida_csv, index=False, sep=';')
         
-        df['numericvalue'] = pd.to_numeric(df['numericvalue'], errors='coerce')
-        df['datetimestamp'] = pd.to_datetime(df['datetimestamp'])
+        # --- LIMPIEZA DE TIPOS DE DATOS CRÍTICA ---
+        # Asegurar conversión flexible de fecha y hora
+        df['datetimestamp'] = pd.to_datetime(df['datetimestamp'], errors='coerce')
         df['fecha'] = df['datetimestamp'].dt.date
         
+        # Forzar valores numéricos limpiando posibles strings residuales
+        df['numericvalue'] = pd.to_numeric(df['numericvalue'].astype(str).str.replace('"', '').str.replace("'", ""), errors='coerce')
+        
+        # Convertir variableid a string y entero para máxima compatibilidad de filtrado
+        df['variableid_str'] = df['variableid'].astype(str).str.strip().str.replace('.0', '', regex=False)
+        
+        # Eliminar filas donde la fecha o el valor numérico fallaron en convertirse
+        df = df.dropna(subset=['fecha', 'numericvalue'])
+        
+        print(f"Total de registros limpios para analizar: {len(df)}")
+
         # 3. PROCESAR TAN DELTA (Variable 4500)
-        df_tan_delta = df[df['variableid'] == 4500].copy()
-        resumen_tan = df_tan_delta.groupby('fecha')['numericvalue'].agg(
-            Tan_Delta_Min='min',
-            Tan_Delta_Max='max',
-            Tan_Delta_Promedio='mean'
-        ).reset_index()
+        df_tan_delta = df[(df['variableid_str'] == '4500') | (df['variableid'] == 4500)].copy()
         
-        # Calcular tiempo de operación real
-        df_tan_delta = df_tan_delta.sort_values('datetimestamp')
-        df_tan_delta['diferencia_segundos'] = df_tan_delta['datetimestamp'].diff().dt.total_seconds()
-        df_tan_delta['diferencia_segundos'] = df_tan_delta['diferencia_segundos'].fillna(0)
-        df_tan_delta.loc[df_tan_delta['diferencia_segundos'] > 3600, 'diferencia_segundos'] = 0
-        
-        tiempo_operacion = df_tan_delta.groupby('fecha')['diferencia_segundos'].sum().reset_index()
-        tiempo_operacion['Horas_Operacion'] = tiempo_operacion['diferencia_segundos'] / 3600
-        tiempo_operacion = tiempo_operacion[['fecha', 'Horas_Operacion']]
+        if df_tan_delta.empty:
+            print("ADVERTENCIA: ¡No se encontraron registros para la Variable 4500 (Tan Delta)!")
+            resumen_tan = pd.DataFrame(columns=['fecha', 'Tan_Delta_Min', 'Tan_Delta_Max', 'Tan_Delta_Promedio'])
+            tiempo_operacion = pd.DataFrame(columns=['fecha', 'Horas_Operacion'])
+        else:
+            resumen_tan = df_tan_delta.groupby('fecha')['numericvalue'].agg(
+                Tan_Delta_Min='min',
+                Tan_Delta_Max='max',
+                Tan_Delta_Promedio='mean'
+            ).reset_index()
+            
+            # Calcular tiempo de operación real
+            df_tan_delta = df_tan_delta.sort_values('datetimestamp')
+            df_tan_delta['diferencia_segundos'] = df_tan_delta['datetimestamp'].diff().dt.total_seconds()
+            df_tan_delta['diferencia_segundos'] = df_tan_delta['diferencia_segundos'].fillna(0)
+            df_tan_delta.loc[df_tan_delta['diferencia_segundos'] > 3600, 'diferencia_segundos'] = 0
+            
+            tiempo_operacion = df_tan_delta.groupby('fecha')['diferencia_segundos'].sum().reset_index()
+            tiempo_operacion['Horas_Operacion'] = tiempo_operacion['diferencia_segundos'] / 3600
+            tiempo_operacion = tiempo_operacion[['fecha', 'Horas_Operacion']]
         
         # 4. PROCESAR TEMPERATURA (Variable 61)
-        df_temp = df[df['variableid'] == 61]
-        resumen_temp = df_temp.groupby('fecha')['numericvalue'].agg(
-            Temp_Aceite_Promedio='mean'
-        ).reset_index()
+        df_temp = df[(df['variableid_str'] == '61') | (df['variableid'] == 61)].copy()
         
-        # 5. UNIR RESÚMENES (Datos diarios compactos)
-        dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
-        if not resumen_temp.empty:
-            dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
+        if df_temp.empty:
+            print("ADVERTENCIA: ¡No se encontraron registros para la Variable 61 (Temperatura)!")
+            resumen_temp = pd.DataFrame(columns=['fecha', 'Temp_Aceite_Promedio'])
         else:
-            dashboard_df['Temp_Aceite_Promedio'] = 0
-            
-        dashboard_df = dashboard_df.sort_values('fecha').fillna(0).round(2)
+            resumen_temp = df_temp.groupby('fecha')['numericvalue'].agg(
+                Temp_Aceite_Promedio='mean'
+            ).reset_index()
+        
+        # 5. UNIR RESÚMENES EN EL DATAFRAME DEL DASHBOARD
+        if resumen_tan.empty and resumen_temp.empty:
+            print("ERROR CRÍTICO: Ambas variables (4500 y 61) están vacías tras el filtrado. Verifica el ID en tus archivos.")
+            dashboard_df = pd.DataFrame(columns=['fecha', 'Tan_Delta_Min', 'Tan_Delta_Max', 'Tan_Delta_Promedio', 'Horas_Operacion', 'Temp_Aceite_Promedio'])
+        else:
+            dashboard_df = pd.merge(resumen_tan, tiempo_operacion, on='fecha', how='outer')
+            dashboard_df = pd.merge(dashboard_df, resumen_temp, on='fecha', how='outer')
+            dashboard_df = dashboard_df.sort_values('fecha').fillna(0).round(2)
         
         # Obtener fecha y hora de la actualización (Zona Horaria Local)
-        zona_horaria = pytz.timezone('America/Bogota') # Cambia a tu zona horaria si es necesario
+        zona_horaria = pytz.timezone('America/Bogota')
         fecha_actualizacion = datetime.now(zona_horaria).strftime("%d/%m/%Y a las %I:%M %p")
         
-        # Convertir únicamente resúmenes compactos a JSON
+        # Convertir datos procesados a listas nativas compatibles con JSON puro
         fechas_list = [str(f) for f in dashboard_df['fecha']]
         tan_min_list = dashboard_df['Tan_Delta_Min'].tolist()
         tan_max_list = dashboard_df['Tan_Delta_Max'].tolist()
@@ -95,10 +123,10 @@ def generar_dashboard():
         horas_list = dashboard_df['Horas_Operacion'].tolist()
         temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
 
-        # Calcular métricas KPI agregadas para las ideas adicionales
-        kpi_max_historico = float(dashboard_df['Tan_Delta_Max'].max())
-        kpi_prom_historico = float(dashboard_df['Tan_Delta_Promedio'].mean())
-        kpi_total_horas = float(dashboard_df['Horas_Operacion'].sum())
+        # Calcular métricas KPI agregadas de forma segura
+        kpi_max_historico = float(dashboard_df['Tan_Delta_Max'].max()) if not dashboard_df.empty else 0.0
+        kpi_prom_historico = float(dashboard_df['Tan_Delta_Promedio'].mean()) if not dashboard_df.empty else 0.0
+        kpi_total_horas = float(dashboard_df['Horas_Operacion'].sum()) if not dashboard_df.empty else 0.0
 
         # 6. PLANTILLA HTML ULTRA-LIGERA DE ALTO RENDIMIENTO
         html_content = """<!DOCTYPE html>
@@ -124,7 +152,6 @@ def generar_dashboard():
         .update-badge { display: inline-block; background-color: #f1f5f9; color: #64748b; font-size: 13px; font-weight: 500; padding: 6px 16px; border-radius: 20px; border: 1px solid #e2e8f0; margin-top: 10px; }
         .update-badge strong { color: #475569; }
         
-        /* Sección de KPIs Estratégicos (Idea Adicional) */
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .kpi-card { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.02); position: relative; overflow: hidden; }
         .kpi-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background-color: #d12027; }
@@ -158,7 +185,6 @@ def generar_dashboard():
         th { background-color: #f8fafc; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-top: 1px solid #e2e8f0; }
         tr:hover { background-color: #fecaca33; }
         
-        /* Firma elegante requerida */
         .footer-signature { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-family: 'Montserrat', sans-serif; font-size: 14px; color: #64748b; font-weight: 400; }
         .footer-signature span { font-weight: 600; color: #1e293b; letter-spacing: 0.2px; }
         
@@ -238,7 +264,6 @@ def generar_dashboard():
         const listasHoras = HORAS_PLACEHOLDER;
         const listasTemp = TEMP_PLACEHOLDER;
 
-        // Inyección estática de KPIs globales
         document.getElementById('kpi-max').innerText = parseFloat(KPI_MAX_PLACEHOLDER).toFixed(2);
         document.getElementById('kpi-prom').innerText = parseFloat(KPI_PROM_PLACEHOLDER).toFixed(2);
         document.getElementById('kpi-horas').innerText = parseFloat(KPI_HORAS_PLACEHOLDER).toFixed(1) + " hrs";
@@ -250,6 +275,8 @@ def generar_dashboard():
                 document.getElementById('fechaInicio').value = listasFechas[0];
                 document.getElementById('fechaFin').value = listasFechas[listasFechas.length - 1];
                 filtrarDashboard();
+            } else {
+                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px; color:#64748b;">No se encontraron registros válidos para las fechas procesadas.</p>';
             }
         }
 
@@ -257,7 +284,7 @@ def generar_dashboard():
             const inicio = document.getElementById('fechaInicio').value;
             const fin = document.getElementById('fechaFin').value;
             
-            if(!inicio || !fin) return;
+            if(!inicio || !fin || listasFechas.length === 0) return;
             
             const indicesFiltrados = [];
             listasFechas.forEach((f, index) => {
@@ -280,6 +307,8 @@ def generar_dashboard():
             if(chart2) chart2.destroy();
             if(chart3) chart3.destroy();
 
+            if(labels.length === 0) return;
+
             chart1 = new Chart(document.getElementById('chartTanDelta'), {
                 type: 'line',
                 data: {
@@ -290,7 +319,7 @@ def generar_dashboard():
                         { label: 'Mín Tan Delta', data: tanMin, borderColor: '#64748b', backgroundColor: 'transparent', borderWidth: 1.5 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Plus Jakarta Sans' } } } } }
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
             chart2 = new Chart(document.getElementById('chartHoras'), {
@@ -323,6 +352,10 @@ def generar_dashboard():
         }
 
         function renderizarTabla(indices) {
+            if(indices.length === 0) {
+                document.getElementById('contenedorTabla').innerHTML = '<p style="text-align:center; padding: 20px;">No hay datos para el rango seleccionado.</p>';
+                return;
+            }
             let html = `<table>
                 <thead>
                     <tr>
@@ -371,7 +404,7 @@ def generar_dashboard():
 </body>
 </html>"""
         
-        # Realizar reemplazos eficientes de datos ligeros
+        # Inyección segura
         html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
         html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
         html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
@@ -379,7 +412,6 @@ def generar_dashboard():
         html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
         html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
         
-        # Reemplazos de las nuevas funciones pedidas
         html_final = html_final.replace("FECHA_UPDATE_PLACEHOLDER", fecha_actualizacion)
         html_final = html_final.replace("KPI_MAX_PLACEHOLDER", str(kpi_max_historico))
         html_final = html_final.replace("KPI_PROM_PLACEHOLDER", str(kpi_prom_historico))
@@ -388,7 +420,7 @@ def generar_dashboard():
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_final)
             
-        print(f"\n¡Éxito! Dashboard optimizado de alto rendimiento generado correctamente.")
+        print(f"\n¡Compilación completada exitosamente!")
         
     except Exception as e:
         print(f"\nOcurrió un error inesperado al procesar los datos: {e}")
