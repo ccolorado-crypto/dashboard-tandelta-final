@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import glob
 import json
+from datetime import datetime, timezone, timedelta  # <-- Importado para manejar UTC-5
 
 def generar_dashboard():
     # 1. Definir rutas relativas
@@ -91,6 +92,10 @@ def generar_dashboard():
         horas_list = dashboard_df['Horas_Operacion'].tolist()
         temp_list = dashboard_df['Temp_Aceite_Promedio'].tolist()
 
+        # Obtener fecha y hora de actualización actual en UTC-5
+        tz_utc5 = timezone(timedelta(hours=-5))
+        fecha_actualizacion = datetime.now(tz_utc5).strftime('%d/%m/%Y %I:%M:%S %p')
+
         # 6. PLANTILLA HTML ULTRA-LIGERA DE ALTO RENDIMIENTO
         html_content = """<!DOCTYPE html>
 <html lang="es">
@@ -110,6 +115,7 @@ def generar_dashboard():
         .header-container { text-align: center; margin-bottom: 35px; }
         .header-container img { max-width: 220px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
         h1 { color: #d12027; font-size: 28px; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
+        .update-time { font-size: 13px; color: #64748b; margin-top: 8px; font-weight: 500; }
         .control-panel { background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
         .filter-group { display: flex; align-items: center; gap: 10px; }
         .filter-group label { font-weight: 600; color: #5a5a5a; font-size: 14px; }
@@ -154,6 +160,7 @@ def generar_dashboard():
         <div class="header-container">
             <img src="logo.png" alt="Logo ÁRTIMO" onerror="this.src='../logo.png'; this.onerror=null;">
             <h1>Sistema de Monitoreo Analítico - Generadores</h1>
+            <div class="update-time">Última actualización: ACTUALIZACION_PLACEHOLDER (UTC -5)</div>
         </div>
         
         <div class="control-panel" id="action-panel">
@@ -335,13 +342,14 @@ def generar_dashboard():
 </body>
 </html>"""
         
-        # Inyectar las listas agrupadas compactas
+        # Inyectar las listas agrupadas compactas y la fecha de actualización
         html_final = html_content.replace("FECHAS_PLACEHOLDER", json.dumps(fechas_list))
         html_final = html_final.replace("TANMIN_PLACEHOLDER", json.dumps(tan_min_list))
         html_final = html_final.replace("TANMAX_PLACEHOLDER", json.dumps(tan_max_list))
         html_final = html_final.replace("TANPROM_PLACEHOLDER", json.dumps(tan_prom_list))
         html_final = html_final.replace("HORAS_PLACEHOLDER", json.dumps(horas_list))
         html_final = html_final.replace("TEMP_PLACEHOLDER", json.dumps(temp_list))
+        html_final = html_final.replace("ACTUALIZACION_PLACEHOLDER", fecha_actualizacion)  # <-- Reemplazo de la fecha
         
         with open(archivo_salida_html, 'w', encoding='utf-8') as f:
             f.write(html_final)
